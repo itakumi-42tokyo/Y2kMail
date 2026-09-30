@@ -33,6 +33,22 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Future<void> _signInWithGoogle() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+    try {
+      await widget.authRepository.signInWithGoogle();
+      // ブラウザでのログインが終わってアプリに戻ってくると、
+      // 上位のAuthGateが自動でホーム画面に切り替える。
+    } catch (e) {
+      setState(() => _errorMessage = e.toString());
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
   @override
   void dispose() {
     _emailController.dispose();
@@ -60,6 +76,13 @@ class _LoginScreenState extends State<LoginScreen> {
               FilledButton(
                 onPressed: _isLoading ? null : _sendLink,
                 child: const Text('ログイン用リンクを送る'),
+              ),
+              const SizedBox(height: 32),
+              const Text('または'),
+              const SizedBox(height: 16),
+              OutlinedButton(
+                onPressed: _isLoading ? null : _signInWithGoogle,
+                child: const Text('Googleでログイン'),
               ),
             ] else
               Text(

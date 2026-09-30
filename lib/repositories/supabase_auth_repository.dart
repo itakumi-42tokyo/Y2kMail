@@ -27,23 +27,6 @@ class SupabaseAuthRepository implements AuthRepository {
   }
 
   @override
-  Future<void> sendPhoneOtp(String phone) {
-    return _client.auth.signInWithOtp(phone: phone);
-  }
-
-  @override
-  Future<void> verifyPhoneOtp({
-    required String phone,
-    required String token,
-  }) async {
-    await _client.auth.verifyOTP(
-      type: OtpType.sms,
-      phone: phone,
-      token: token,
-    );
-  }
-
-  @override
   Future<void> signInWithGoogle() async {
     await _client.auth.signInWithOAuth(
       OAuthProvider.google,

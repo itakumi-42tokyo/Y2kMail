@@ -13,12 +13,6 @@ abstract class AuthRepository {
   /// リンクをタップしてアプリに戻ってくると、自動でログインが完了する。
   Future<void> sendEmailOtp(String email);
 
-  /// 電話番号（SMS）宛てに確認コードを送る。
-  Future<void> sendPhoneOtp(String phone);
-
-  /// SMSで届いた確認コードを照合し、ログインを完了する。
-  Future<void> verifyPhoneOtp({required String phone, required String token});
-
   /// Googleアカウントでログインする。
   Future<void> signInWithGoogle();
 
