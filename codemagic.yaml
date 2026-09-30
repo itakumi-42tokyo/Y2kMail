@@ -1,0 +1,18 @@
+workflows:
+  ios-build-check:
+    name: iOS ビルド確認（署名なし）
+    max_build_duration: 30
+    instance_type: mac_mini_m2
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: パッケージ取得
+        script: flutter pub get
+      - name: 静的解析
+        script: flutter analyze
+      - name: テスト
+        script: flutter test
+      - name: iOSビルド（署名なし）
+        script: flutter build ios --release --no-codesign
