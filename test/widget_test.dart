@@ -1,30 +1,44 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:kengai/main.dart';
+import 'package:kengai/repositories/auth_repository.dart';
+import 'package:kengai/screens/login_screen.dart';
+
+class FakeAuthRepository implements AuthRepository {
+  @override
+  Stream<bool> get isSignedInStream => const Stream.empty();
+
+  @override
+  String? get currentUserId => null;
+
+  @override
+  Future<void> sendEmailOtp(String email) async {}
+
+  @override
+  Future<void> sendPhoneOtp(String phone) async {}
+
+  @override
+  Future<void> verifyPhoneOtp({
+    required String phone,
+    required String token,
+  }) async {}
+
+  @override
+  Future<void> signInWithGoogle() async {}
+
+  @override
+  Future<void> signOut() async {}
+}
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  testWidgets('未ログイン時はメールアドレス入力欄が表示される', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: LoginScreen(authRepository: FakeAuthRepository()),
+      ),
+    );
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
-
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    expect(find.text('メールアドレス'), findsOneWidget);
+    expect(find.text('ログイン用リンクを送る'), findsOneWidget);
   });
 }
