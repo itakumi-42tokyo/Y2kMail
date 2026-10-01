@@ -6,6 +6,7 @@ import '../repositories/mail_repository.dart';
 import '../repositories/profile_repository.dart';
 import 'debug_photo_preview_screen.dart';
 import 'friends_screen.dart';
+import 'intro_photo_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({
@@ -50,6 +51,17 @@ class HomeScreen extends StatelessWidget {
               ),
               icon: const Icon(Icons.contacts),
               label: const Text('電話帳'),
+            ),
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) =>
+                      IntroPhotoScreen(profileRepository: profileRepository),
+                ),
+              ),
+              icon: const Icon(Icons.account_box),
+              label: const Text('自己紹介写真'),
             ),
             const SizedBox(height: 16),
             FilledButton(

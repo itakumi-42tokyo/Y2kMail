@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -32,6 +34,12 @@ class FakeProfileRepository implements ProfileRepository {
 
   @override
   Future<String> fetchDisplayName() async => 'テスト太郎';
+
+  @override
+  Future<void> setIntroPhoto(Uint8List originalPhotoBytes) async {}
+
+  @override
+  Future<Uint8List?> fetchIntroPhoto() async => null;
 }
 
 void main() {

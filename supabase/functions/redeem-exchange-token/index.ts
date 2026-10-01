@@ -78,11 +78,46 @@ Deno.serve(async (req) => {
       .update({ used_at: new Date().toISOString() })
       .eq("token", token);
 
+    // 1通目の自己紹介写メールを、両者へ自動で送る。
+    // 事前に設定した自己紹介写真を使う。未設定の人の分は送らない。
+    await sendIntroMails(adminClient, tokenRow.owner_id, user.id);
+
     return json({ ok: true }, 200);
   } catch (e) {
     return json({ error: String(e) }, 500);
   }
 });
+
+// 2人それぞれの自己紹介写真を、相手あての1通目メールとして作る。
+// deno-lint-ignore no-explicit-any
+async function sendIntroMails(admin: any, userA: string, userB: string) {
+  const { data: profiles } = await admin
+    .from("profiles")
+    .select("id, intro_photo_path")
+    .in("id", [userA, userB]);
+  if (!profiles) return;
+
+  const introPhotoById: Record<string, string | null> = {};
+  for (const p of profiles) {
+    introPhotoById[p.id] = p.intro_photo_path ?? null;
+  }
+
+  const mails: Array<Record<string, unknown>> = [];
+  for (const [sender, receiver] of [[userA, userB], [userB, userA]]) {
+    const photoPath = introPhotoById[sender];
+    if (!photoPath) continue; // 自己紹介写真が未設定なら送らない。
+    mails.push({
+      sender_id: sender,
+      receiver_id: receiver,
+      subject: "はじめまして",
+      photo_path: photoPath,
+    });
+  }
+
+  if (mails.length > 0) {
+    await admin.from("mails").insert(mails);
+  }
+}
 
 function json(body: unknown, status: number): Response {
   return new Response(JSON.stringify(body), {
