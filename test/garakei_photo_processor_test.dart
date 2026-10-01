@@ -21,7 +21,7 @@ Uint8List _buildTestJpeg({
 }
 
 void main() {
-  test('解像度は変更されない', () {
+  test('解像度（出力の画素数）は変更されない', () {
     for (final size in [(800, 600), (600, 1200), (1200, 600)]) {
       final input = _buildTestJpeg(width: size.$1, height: size.$2);
 
@@ -42,24 +42,25 @@ void main() {
     expect(decoded.exif.isEmpty, isTrue);
   });
 
-  test('赤を抑え青を足すことで、赤と青の差が元より縮まる', () {
-    final input = _buildTestJpeg(); // 塗りつぶし色: r=180, g=120, b=60
+  test('ドット化すると、隙間（セルの角）はドット中心より暗くなる', () {
+    final input = _buildTestJpeg();
 
-    // ノイズなどランダム要素を含む効果は切り、色味の調整だけを検証する。
+    // ドットの効果を確かめたいので、ドット化以外の効果は切る。
     final output = GarakeiPhotoProcessor.process(
       input,
-      blurRadius: 0,
-      noiseSigma: 0,
-      vignetteAmount: 0,
-      chromaticAberrationShift: 0,
-      screenDoorCellSize: 0,
+      brightness: 1.0,
+      saturation: 1.0,
+      contrast: 1.0,
+      dotsAcross: 50, // 粗めにして1セルを大きくする
+      glowBlurRadius: 0,
     );
     final decoded = img.decodeImage(output)!;
-    final pixel = decoded.getPixel(decoded.width ~/ 2, decoded.height ~/ 2);
 
-    const originalRedBlueDiff = 180 - 60;
-    final processedRedBlueDiff = pixel.r - pixel.b;
+    final cell = (decoded.width / 50).round();
+    // あるセルの中心と、その角（隙間）の明るさを比べる。
+    final center = decoded.getPixel(cell ~/ 2, cell ~/ 2);
+    final corner = decoded.getPixel(0, 0);
 
-    expect(processedRedBlueDiff, lessThan(originalRedBlueDiff));
+    expect(corner.r, lessThan(center.r));
   });
 }

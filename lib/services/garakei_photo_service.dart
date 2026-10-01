@@ -8,24 +8,30 @@ import 'garakei_photo_processor.dart';
 class GarakeiPhotoService {
   static Future<Uint8List> process(
     Uint8List originalBytes, {
-    int quality = 90,
-    int blurRadius = 2,
-    double noiseSigma = 10,
-    double vignetteAmount = 0.6,
-    int chromaticAberrationShift = 3,
-    int screenDoorCellSize = 4,
-    double screenDoorDarken = 0.35,
+    int quality = 92,
+    double brightness = 1.12,
+    double saturation = 1.15,
+    double contrast = 1.05,
+    int targetWidth = 0,
+    int dotsAcross = 100,
+    double dotFill = 0.85,
+    double gapDarken = 0.35,
+    int glowBlurRadius = 0,
+    double glowThreshold = 0.7,
   }) {
     return Isolate.run(
       () => GarakeiPhotoProcessor.process(
         originalBytes,
         quality: quality,
-        blurRadius: blurRadius,
-        noiseSigma: noiseSigma,
-        vignetteAmount: vignetteAmount,
-        chromaticAberrationShift: chromaticAberrationShift,
-        screenDoorCellSize: screenDoorCellSize,
-        screenDoorDarken: screenDoorDarken,
+        brightness: brightness,
+        saturation: saturation,
+        contrast: contrast,
+        targetWidth: targetWidth,
+        dotsAcross: dotsAcross,
+        dotFill: dotFill,
+        gapDarken: gapDarken,
+        glowBlurRadius: glowBlurRadius,
+        glowThreshold: glowThreshold,
       ),
     );
   }
