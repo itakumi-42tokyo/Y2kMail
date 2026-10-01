@@ -82,7 +82,18 @@ Deno.serve(async (req) => {
     // 事前に設定した自己紹介写真を使う。未設定の人の分は送らない。
     await sendIntroMails(adminClient, tokenRow.owner_id, user.id);
 
-    return json({ ok: true }, 200);
+    // 交換成立の演出のため、相手（QRを出した側）の表示名を返す。
+    const { data: friendProfile } = await adminClient
+      .from("profiles")
+      .select("display_name")
+      .eq("id", tokenRow.owner_id)
+      .maybeSingle();
+
+    return json({
+      ok: true,
+      friend_id: tokenRow.owner_id,
+      friend_name: friendProfile?.display_name ?? "",
+    }, 200);
   } catch (e) {
     return json({ error: String(e) }, 500);
   }

@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import '../models/friend.dart';
 import '../repositories/friend_repository.dart';
 import '../repositories/mail_repository.dart';
+import '../repositories/profile_repository.dart';
 import 'conversation_screen.dart';
+import 'exchange_result_screen.dart';
 import 'qr_display_screen.dart';
 import 'qr_scan_screen.dart';
 
@@ -13,10 +15,12 @@ class FriendsScreen extends StatefulWidget {
     super.key,
     required this.friendRepository,
     required this.mailRepository,
+    required this.profileRepository,
   });
 
   final FriendRepository friendRepository;
   final MailRepository mailRepository;
+  final ProfileRepository profileRepository;
 
   @override
   State<FriendsScreen> createState() => _FriendsScreenState();
@@ -45,15 +49,12 @@ class _FriendsScreenState extends State<FriendsScreen> {
   }
 
   Future<void> _openScan() async {
-    final added = await Navigator.of(context).push<bool>(
+    final outcome = await Navigator.of(context).push<RedeemOutcome>(
       MaterialPageRoute(
         builder: (_) => QrScanScreen(friendRepository: widget.friendRepository),
       ),
     );
-    // 友達が増えたら一覧を更新する。
-    if (added == true && mounted) {
-      setState(_reload);
-    }
+    if (outcome != null) await _handleOutcome(outcome);
   }
 
   // 開発用: カメラを使わず、トークンを手入力して友達追加を試す。
@@ -82,10 +83,29 @@ class _FriendsScreenState extends State<FriendsScreen> {
     );
     if (token == null || token.isEmpty || !mounted) return;
 
-    final result = await widget.friendRepository.redeemToken(token);
-    if (!mounted) return;
-    final message = switch (result) {
-      RedeemResult.success => '友達になりました',
+    final outcome = await widget.friendRepository.redeemToken(token);
+    if (mounted) await _handleOutcome(outcome);
+  }
+
+  // 交換の結果を受けて、成功時は演出画面へ、失敗時はメッセージを出す。
+  Future<void> _handleOutcome(RedeemOutcome outcome) async {
+    if (outcome.result == RedeemResult.success) {
+      setState(_reload);
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => ExchangeResultScreen(
+            mailRepository: widget.mailRepository,
+            profileRepository: widget.profileRepository,
+            friendId: outcome.friendId!,
+            friendName: outcome.friendName ?? '',
+          ),
+        ),
+      );
+      if (mounted) setState(_reload);
+      return;
+    }
+    final message = switch (outcome.result) {
+      RedeemResult.success => '',
       RedeemResult.alreadyFriends => 'すでに友達です',
       RedeemResult.expired => 'QRコードの有効期限が切れています',
       RedeemResult.used => 'このQRコードは使用済みです',
@@ -94,7 +114,6 @@ class _FriendsScreenState extends State<FriendsScreen> {
       RedeemResult.error => '読み取りに失敗しました',
     };
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-    if (result == RedeemResult.success) setState(_reload);
   }
 
   @override

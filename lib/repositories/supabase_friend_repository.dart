@@ -16,13 +16,18 @@ class SupabaseFriendRepository implements FriendRepository {
   }
 
   @override
-  Future<RedeemResult> redeemToken(String token) async {
+  Future<RedeemOutcome> redeemToken(String token) async {
     try {
-      await _client.functions.invoke(
+      final res = await _client.functions.invoke(
         'redeem-exchange-token',
         body: {'token': token},
       );
-      return RedeemResult.success;
+      final data = res.data as Map<String, dynamic>;
+      return RedeemOutcome(
+        RedeemResult.success,
+        friendId: data['friend_id'] as String?,
+        friendName: data['friend_name'] as String?,
+      );
     } on FunctionException catch (e) {
       // Edge Functionが返したエラーメッセージで、結果の種類を判定する。
       final details = e.details;
@@ -30,15 +35,23 @@ class SupabaseFriendRepository implements FriendRepository {
           ? details['error'] as String
           : '';
       if (e.status == 409 || message.contains('すでに友達')) {
-        return RedeemResult.alreadyFriends;
+        return const RedeemOutcome(RedeemResult.alreadyFriends);
       }
-      if (message.contains('使用済み')) return RedeemResult.used;
-      if (message.contains('有効期限')) return RedeemResult.expired;
-      if (message.contains('自分')) return RedeemResult.selfQr;
-      if (message.contains('無効')) return RedeemResult.invalid;
-      return RedeemResult.error;
+      if (message.contains('使用済み')) {
+        return const RedeemOutcome(RedeemResult.used);
+      }
+      if (message.contains('有効期限')) {
+        return const RedeemOutcome(RedeemResult.expired);
+      }
+      if (message.contains('自分')) {
+        return const RedeemOutcome(RedeemResult.selfQr);
+      }
+      if (message.contains('無効')) {
+        return const RedeemOutcome(RedeemResult.invalid);
+      }
+      return const RedeemOutcome(RedeemResult.error);
     } catch (_) {
-      return RedeemResult.error;
+      return const RedeemOutcome(RedeemResult.error);
     }
   }
 

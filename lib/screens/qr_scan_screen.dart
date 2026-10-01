@@ -4,7 +4,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import '../repositories/friend_repository.dart';
 
 // 相手のQRを読み取って友達になる画面。
-// 成功したらtrueを返して閉じる（呼び出し元が一覧を更新する）。
+// 読み取って交換を試みた結果（RedeemOutcome）を返して閉じる。
 class QrScanScreen extends StatefulWidget {
   const QrScanScreen({super.key, required this.friendRepository});
 
@@ -26,28 +26,10 @@ class _QrScanScreenState extends State<QrScanScreen> {
     if (raw == null || raw.isEmpty) return;
 
     setState(() => _handling = true);
-    final result = await widget.friendRepository.redeemToken(raw);
+    final outcome = await widget.friendRepository.redeemToken(raw);
     if (!mounted) return;
-
-    final message = switch (result) {
-      RedeemResult.success => '友達になりました',
-      RedeemResult.alreadyFriends => 'すでに友達です',
-      RedeemResult.expired => 'QRコードの有効期限が切れています',
-      RedeemResult.used => 'このQRコードは使用済みです',
-      RedeemResult.selfQr => '自分のQRコードは読み取れません',
-      RedeemResult.invalid => '無効なQRコードです',
-      RedeemResult.error => '読み取りに失敗しました',
-    };
-
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-
-    if (result == RedeemResult.success) {
-      Navigator.of(context).pop(true);
-    } else {
-      // 失敗時は、少し待ってからまた読み取れるようにする。
-      await Future.delayed(const Duration(seconds: 2));
-      if (mounted) setState(() => _handling = false);
-    }
+    // 結果は呼び出し元（電話帳）に返して、そちらで演出・メッセージを出す。
+    Navigator.of(context).pop(outcome);
   }
 
   @override

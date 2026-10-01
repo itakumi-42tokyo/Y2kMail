@@ -46,6 +46,7 @@ class HomeScreen extends StatelessWidget {
                   builder: (_) => FriendsScreen(
                     friendRepository: friendRepository,
                     mailRepository: mailRepository,
+                    profileRepository: profileRepository,
                   ),
                 ),
               ),
