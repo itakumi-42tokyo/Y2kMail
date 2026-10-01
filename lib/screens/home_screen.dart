@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../repositories/auth_repository.dart';
 import '../repositories/friend_repository.dart';
+import '../repositories/mail_repository.dart';
 import '../repositories/profile_repository.dart';
 import 'debug_photo_preview_screen.dart';
 import 'friends_screen.dart';
@@ -12,11 +13,13 @@ class HomeScreen extends StatelessWidget {
     required this.authRepository,
     required this.profileRepository,
     required this.friendRepository,
+    required this.mailRepository,
   });
 
   final AuthRepository authRepository;
   final ProfileRepository profileRepository;
   final FriendRepository friendRepository;
+  final MailRepository mailRepository;
 
   @override
   Widget build(BuildContext context) {
@@ -39,8 +42,10 @@ class HomeScreen extends StatelessWidget {
             FilledButton.icon(
               onPressed: () => Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (_) =>
-                      FriendsScreen(friendRepository: friendRepository),
+                  builder: (_) => FriendsScreen(
+                    friendRepository: friendRepository,
+                    mailRepository: mailRepository,
+                  ),
                 ),
               ),
               icon: const Icon(Icons.contacts),

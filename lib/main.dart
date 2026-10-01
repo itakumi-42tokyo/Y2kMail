@@ -4,9 +4,11 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'config/supabase_config.dart';
 import 'repositories/auth_repository.dart';
 import 'repositories/friend_repository.dart';
+import 'repositories/mail_repository.dart';
 import 'repositories/profile_repository.dart';
 import 'repositories/supabase_auth_repository.dart';
 import 'repositories/supabase_friend_repository.dart';
+import 'repositories/supabase_mail_repository.dart';
 import 'repositories/supabase_profile_repository.dart';
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
@@ -26,6 +28,7 @@ Future<void> main() async {
     authRepository: SupabaseAuthRepository(client),
     profileRepository: SupabaseProfileRepository(client),
     friendRepository: SupabaseFriendRepository(client),
+    mailRepository: SupabaseMailRepository(client),
   ));
 }
 
@@ -35,11 +38,13 @@ class KengaiApp extends StatelessWidget {
     required this.authRepository,
     required this.profileRepository,
     required this.friendRepository,
+    required this.mailRepository,
   });
 
   final AuthRepository authRepository;
   final ProfileRepository profileRepository;
   final FriendRepository friendRepository;
+  final MailRepository mailRepository;
 
   @override
   Widget build(BuildContext context) {
@@ -50,6 +55,7 @@ class KengaiApp extends StatelessWidget {
         authRepository: authRepository,
         profileRepository: profileRepository,
         friendRepository: friendRepository,
+        mailRepository: mailRepository,
       ),
     );
   }
@@ -63,11 +69,13 @@ class AuthGate extends StatelessWidget {
     required this.authRepository,
     required this.profileRepository,
     required this.friendRepository,
+    required this.mailRepository,
   });
 
   final AuthRepository authRepository;
   final ProfileRepository profileRepository;
   final FriendRepository friendRepository;
+  final MailRepository mailRepository;
 
   @override
   Widget build(BuildContext context) {
@@ -83,6 +91,7 @@ class AuthGate extends StatelessWidget {
           authRepository: authRepository,
           profileRepository: profileRepository,
           friendRepository: friendRepository,
+          mailRepository: mailRepository,
         );
       },
     );
@@ -96,11 +105,13 @@ class _ProfileGate extends StatefulWidget {
     required this.authRepository,
     required this.profileRepository,
     required this.friendRepository,
+    required this.mailRepository,
   });
 
   final AuthRepository authRepository;
   final ProfileRepository profileRepository;
   final FriendRepository friendRepository;
+  final MailRepository mailRepository;
 
   @override
   State<_ProfileGate> createState() => _ProfileGateState();
@@ -130,6 +141,7 @@ class _ProfileGateState extends State<_ProfileGate> {
             authRepository: widget.authRepository,
             profileRepository: widget.profileRepository,
             friendRepository: widget.friendRepository,
+            mailRepository: widget.mailRepository,
           );
         }
         return ProfileSetupScreen(

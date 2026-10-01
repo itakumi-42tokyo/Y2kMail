@@ -56,6 +56,16 @@ class _QrDisplayScreenState extends State<QrDisplayScreen> {
                   '※5分で無効になります',
                   style: TextStyle(fontSize: 12, color: Colors.grey),
                 ),
+                // 開発用: トークン文字列。動作確認が済んだら削除する。
+                const SizedBox(height: 16),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: SelectableText(
+                    '開発用トークン: ${snapshot.data!}',
+                    style: const TextStyle(fontSize: 10, color: Colors.grey),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
               ],
             );
           },

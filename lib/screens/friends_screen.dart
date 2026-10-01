@@ -2,14 +2,21 @@ import 'package:flutter/material.dart';
 
 import '../models/friend.dart';
 import '../repositories/friend_repository.dart';
+import '../repositories/mail_repository.dart';
+import 'conversation_screen.dart';
 import 'qr_display_screen.dart';
 import 'qr_scan_screen.dart';
 
 // 友達一覧と、QRの表示・読み取りへの入口。
 class FriendsScreen extends StatefulWidget {
-  const FriendsScreen({super.key, required this.friendRepository});
+  const FriendsScreen({
+    super.key,
+    required this.friendRepository,
+    required this.mailRepository,
+  });
 
   final FriendRepository friendRepository;
+  final MailRepository mailRepository;
 
   @override
   State<FriendsScreen> createState() => _FriendsScreenState();
@@ -49,6 +56,47 @@ class _FriendsScreenState extends State<FriendsScreen> {
     }
   }
 
+  // 開発用: カメラを使わず、トークンを手入力して友達追加を試す。
+  // 動作確認が済んだら削除する。
+  Future<void> _manualRedeem() async {
+    final controller = TextEditingController();
+    final token = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('トークン手入力（開発用）'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(hintText: '相手のトークンを貼り付け'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('キャンセル'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(controller.text.trim()),
+            child: const Text('追加'),
+          ),
+        ],
+      ),
+    );
+    if (token == null || token.isEmpty || !mounted) return;
+
+    final result = await widget.friendRepository.redeemToken(token);
+    if (!mounted) return;
+    final message = switch (result) {
+      RedeemResult.success => '友達になりました',
+      RedeemResult.alreadyFriends => 'すでに友達です',
+      RedeemResult.expired => 'QRコードの有効期限が切れています',
+      RedeemResult.used => 'このQRコードは使用済みです',
+      RedeemResult.selfQr => '自分のQRコードは読み取れません',
+      RedeemResult.invalid => '無効なQRコードです',
+      RedeemResult.error => '読み取りに失敗しました',
+    };
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    if (result == RedeemResult.success) setState(_reload);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -77,6 +125,14 @@ class _FriendsScreenState extends State<FriendsScreen> {
               ],
             ),
           ),
+          // 開発用の入口。動作確認が済んだら削除する。
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: _manualRedeem,
+              child: const Text('トークン手入力（開発用）'),
+            ),
+          ),
           const Divider(height: 1),
           Expanded(
             child: FutureBuilder<List<Friend>>(
@@ -95,10 +151,23 @@ class _FriendsScreenState extends State<FriendsScreen> {
                 return ListView.separated(
                   itemCount: friends.length,
                   separatorBuilder: (_, _) => const Divider(height: 1),
-                  itemBuilder: (context, index) => ListTile(
-                    leading: const Icon(Icons.person),
-                    title: Text(friends[index].displayName),
-                  ),
+                  itemBuilder: (context, index) {
+                    final friend = friends[index];
+                    return ListTile(
+                      leading: const Icon(Icons.person),
+                      title: Text(friend.displayName),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => ConversationScreen(
+                            mailRepository: widget.mailRepository,
+                            friendId: friend.id,
+                            friendName: friend.displayName,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
                 );
               },
             ),
