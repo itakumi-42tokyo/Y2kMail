@@ -3,9 +3,8 @@ import 'package:flutter/material.dart';
 import '../models/friend.dart';
 import '../repositories/friend_repository.dart';
 import '../repositories/mail_repository.dart';
-import '../repositories/profile_repository.dart';
 import 'conversation_screen.dart';
-import 'exchange_result_screen.dart';
+import 'exchange_result_dialog.dart';
 import 'qr_display_screen.dart';
 import 'qr_scan_screen.dart';
 
@@ -15,12 +14,10 @@ class FriendsScreen extends StatefulWidget {
     super.key,
     required this.friendRepository,
     required this.mailRepository,
-    required this.profileRepository,
   });
 
   final FriendRepository friendRepository;
   final MailRepository mailRepository;
-  final ProfileRepository profileRepository;
 
   @override
   State<FriendsScreen> createState() => _FriendsScreenState();
@@ -91,14 +88,13 @@ class _FriendsScreenState extends State<FriendsScreen> {
   Future<void> _handleOutcome(RedeemOutcome outcome) async {
     if (outcome.result == RedeemResult.success) {
       setState(_reload);
-      await Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => ExchangeResultScreen(
-            mailRepository: widget.mailRepository,
-            profileRepository: widget.profileRepository,
-            friendId: outcome.friendId!,
-            friendName: outcome.friendName ?? '',
-          ),
+      // 「友達に追加しました」のタイミングで、写真をポップアップで一時表示する。
+      await showDialog<void>(
+        context: context,
+        builder: (_) => ExchangeResultDialog(
+          mailRepository: widget.mailRepository,
+          friendId: outcome.friendId!,
+          friendName: outcome.friendName ?? '',
         ),
       );
       if (mounted) setState(_reload);
