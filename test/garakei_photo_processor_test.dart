@@ -45,7 +45,15 @@ void main() {
   test('赤を抑え青を足すことで、赤と青の差が元より縮まる', () {
     final input = _buildTestJpeg(); // 塗りつぶし色: r=180, g=120, b=60
 
-    final output = GarakeiPhotoProcessor.process(input);
+    // ノイズなどランダム要素を含む効果は切り、色味の調整だけを検証する。
+    final output = GarakeiPhotoProcessor.process(
+      input,
+      blurRadius: 0,
+      noiseSigma: 0,
+      vignetteAmount: 0,
+      chromaticAberrationShift: 0,
+      screenDoorCellSize: 0,
+    );
     final decoded = img.decodeImage(output)!;
     final pixel = decoded.getPixel(decoded.width ~/ 2, decoded.height ~/ 2);
 
