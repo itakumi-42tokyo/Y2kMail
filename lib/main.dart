@@ -3,8 +3,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'config/supabase_config.dart';
 import 'repositories/auth_repository.dart';
+import 'repositories/friend_repository.dart';
 import 'repositories/profile_repository.dart';
 import 'repositories/supabase_auth_repository.dart';
+import 'repositories/supabase_friend_repository.dart';
 import 'repositories/supabase_profile_repository.dart';
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
@@ -23,6 +25,7 @@ Future<void> main() async {
   runApp(KengaiApp(
     authRepository: SupabaseAuthRepository(client),
     profileRepository: SupabaseProfileRepository(client),
+    friendRepository: SupabaseFriendRepository(client),
   ));
 }
 
@@ -31,10 +34,12 @@ class KengaiApp extends StatelessWidget {
     super.key,
     required this.authRepository,
     required this.profileRepository,
+    required this.friendRepository,
   });
 
   final AuthRepository authRepository;
   final ProfileRepository profileRepository;
+  final FriendRepository friendRepository;
 
   @override
   Widget build(BuildContext context) {
@@ -44,6 +49,7 @@ class KengaiApp extends StatelessWidget {
       home: AuthGate(
         authRepository: authRepository,
         profileRepository: profileRepository,
+        friendRepository: friendRepository,
       ),
     );
   }
@@ -56,10 +62,12 @@ class AuthGate extends StatelessWidget {
     super.key,
     required this.authRepository,
     required this.profileRepository,
+    required this.friendRepository,
   });
 
   final AuthRepository authRepository;
   final ProfileRepository profileRepository;
+  final FriendRepository friendRepository;
 
   @override
   Widget build(BuildContext context) {
@@ -74,6 +82,7 @@ class AuthGate extends StatelessWidget {
         return _ProfileGate(
           authRepository: authRepository,
           profileRepository: profileRepository,
+          friendRepository: friendRepository,
         );
       },
     );
@@ -86,10 +95,12 @@ class _ProfileGate extends StatefulWidget {
   const _ProfileGate({
     required this.authRepository,
     required this.profileRepository,
+    required this.friendRepository,
   });
 
   final AuthRepository authRepository;
   final ProfileRepository profileRepository;
+  final FriendRepository friendRepository;
 
   @override
   State<_ProfileGate> createState() => _ProfileGateState();
@@ -118,6 +129,7 @@ class _ProfileGateState extends State<_ProfileGate> {
           return HomeScreen(
             authRepository: widget.authRepository,
             profileRepository: widget.profileRepository,
+            friendRepository: widget.friendRepository,
           );
         }
         return ProfileSetupScreen(

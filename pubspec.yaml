@@ -44,6 +44,10 @@ dependencies:
   # 見た目の確認用（ギャラリーから写真を選ぶため）
   image_picker: ^1.1.2
 
+  # QRコードの表示と読み取り（近距離でのアドレス交換）
+  qr_flutter: ^4.1.0
+  mobile_scanner: ^5.2.3
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

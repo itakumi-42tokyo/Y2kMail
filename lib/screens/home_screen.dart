@@ -1,18 +1,22 @@
 import 'package:flutter/material.dart';
 
 import '../repositories/auth_repository.dart';
+import '../repositories/friend_repository.dart';
 import '../repositories/profile_repository.dart';
 import 'debug_photo_preview_screen.dart';
+import 'friends_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({
     super.key,
     required this.authRepository,
     required this.profileRepository,
+    required this.friendRepository,
   });
 
   final AuthRepository authRepository;
   final ProfileRepository profileRepository;
+  final FriendRepository friendRepository;
 
   @override
   Widget build(BuildContext context) {
@@ -30,6 +34,17 @@ class HomeScreen extends StatelessWidget {
                 }
                 return Text('ログイン中: ${snapshot.data}');
               },
+            ),
+            const SizedBox(height: 24),
+            FilledButton.icon(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) =>
+                      FriendsScreen(friendRepository: friendRepository),
+                ),
+              ),
+              icon: const Icon(Icons.contacts),
+              label: const Text('電話帳'),
             ),
             const SizedBox(height: 16),
             FilledButton(

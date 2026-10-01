@@ -28,6 +28,8 @@
 	<true/>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>写メールに添付する写真を選ぶために使います</string>
+	<key>NSCameraUsageDescription</key>
+	<string>友達追加のQRコードを読み取るために使います</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
