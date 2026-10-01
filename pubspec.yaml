@@ -38,6 +38,12 @@ dependencies:
   # Supabase（認証・DB・Storage）のクライアント
   supabase_flutter: ^2.8.0
 
+  # 写真の低画質化（リサイズ・JPEG再エンコード）に使う、純粋なDartの画像処理ライブラリ
+  image: ^4.3.0
+
+  # 見た目の確認用（ギャラリーから写真を選ぶため）
+  image_picker: ^1.1.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../repositories/auth_repository.dart';
 import '../repositories/profile_repository.dart';
+import 'debug_photo_preview_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({
@@ -34,6 +35,15 @@ class HomeScreen extends StatelessWidget {
             FilledButton(
               onPressed: authRepository.signOut,
               child: const Text('ログアウト'),
+            ),
+            const SizedBox(height: 16),
+            OutlinedButton(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const DebugPhotoPreviewScreen(),
+                ),
+              ),
+              child: const Text('画質変換の確認（開発用）'),
             ),
           ],
         ),
