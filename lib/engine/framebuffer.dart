@@ -3,7 +3,8 @@ import 'dart:typed_data';
 import 'bdf_font.dart';
 
 // 120x160 の仮想フレームバッファ。
-// 各ドットは明るさ(0-255)を持つ。色や形は描画時（PanelRenderer）が決める。
+// 各ドットはパレット番号を持つ（0=消灯/地, 1=点灯 など）。
+// 番号→色の対応や形は、見せ方の層（PanelRenderer）が決める。
 // フォントやこのバッファの中身は、パネルの見せ方に依存しない。
 class Framebuffer {
   Framebuffer(this.font);
@@ -13,25 +14,25 @@ class Framebuffer {
 
   final BdfFont font;
 
-  // 1ドット1バイトの明るさ（0=消灯 〜 255=最大）。
-  final Uint8List levels = Uint8List(width * height);
+  // 1ドット1バイトのパレット番号。
+  final Uint8List pixels = Uint8List(width * height);
 
   void clear({bool on = false}) {
-    levels.fillRange(0, levels.length, on ? 255 : 0);
+    pixels.fillRange(0, pixels.length, on ? 1 : 0);
   }
 
   void setPixel(int x, int y, {bool on = true}) {
-    setBrightness(x, y, on ? 255 : 0);
+    setIndex(x, y, on ? 1 : 0);
   }
 
-  void setBrightness(int x, int y, int level) {
+  void setIndex(int x, int y, int paletteIndex) {
     if (x < 0 || x >= width || y < 0 || y >= height) return;
-    levels[y * width + x] = level.clamp(0, 255);
+    pixels[y * width + x] = paletteIndex;
   }
 
   bool getPixel(int x, int y) {
     if (x < 0 || x >= width || y < 0 || y >= height) return false;
-    return levels[y * width + x] > 0;
+    return pixels[y * width + x] != 0;
   }
 
   void fillRect(int x, int y, int w, int h, {bool on = true}) {

@@ -20,10 +20,11 @@ abstract class PanelRenderer {
   bool get ready;
 
   /// 1コマ描画する。[transforms] はセルごとの配置（長さ=画素数）。
+  /// [pixels] は各画素のパレット番号。
   void paintPanel(
     Canvas canvas,
     List<RSTransform> transforms,
-    Uint8List levels,
+    Uint8List pixels,
   );
 }
 
@@ -82,7 +83,7 @@ class BulbPanelRenderer implements PanelRenderer {
   void paintPanel(
     Canvas canvas,
     List<RSTransform> transforms,
-    Uint8List levels,
+    Uint8List pixels,
   ) {
     canvas.drawColor(background, BlendMode.src);
     final atlas = _atlas;
@@ -92,10 +93,10 @@ class BulbPanelRenderer implements PanelRenderer {
     final litRect =
         Rect.fromLTWH(_spr.toDouble(), 0, _spr.toDouble(), _spr.toDouble());
 
-    // 各画素の明るさで、点灯/消灯スプライトを選ぶ。
+    // パレット番号で、点灯/消灯スプライトを選ぶ（0=消灯, それ以外=点灯）。
     final rects = List<Rect>.generate(
-      levels.length,
-      (i) => levels[i] > 127 ? litRect : offRect,
+      pixels.length,
+      (i) => pixels[i] != 0 ? litRect : offRect,
       growable: false,
     );
 

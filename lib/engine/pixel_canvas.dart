@@ -7,7 +7,7 @@ import 'framebuffer.dart';
 import 'panel_renderer.dart';
 
 // 仮想フレームバッファ(120x160)を、差し替え可能な PanelRenderer で表示する。
-// [paint] でバッファに明るさを書き、タップは仮想ドット座標で [onTapDown] に返す。
+// [paint] でバッファにパレット番号を書き、タップは仮想ドット座標で [onTapDown] に返す。
 class LedCanvas extends StatefulWidget {
   const LedCanvas({
     super.key,
@@ -106,7 +106,7 @@ class _LedCanvasState extends State<LedCanvas> {
             painter: _PanelPainter(
               renderer: _renderer,
               transforms: _transforms,
-              levels: _fb.levels,
+              pixels: _fb.pixels,
               cell: _cellPx,
               repaint: widget.repaintKey ^ (_ready << 20),
             ),
@@ -121,14 +121,14 @@ class _PanelPainter extends CustomPainter {
   _PanelPainter({
     required this.renderer,
     required this.transforms,
-    required this.levels,
+    required this.pixels,
     required this.cell,
     required this.repaint,
   });
 
   final PanelRenderer renderer;
   final List<RSTransform>? transforms;
-  final Uint8List levels;
+  final Uint8List pixels;
   final int cell;
   final int repaint;
 
@@ -139,7 +139,7 @@ class _PanelPainter extends CustomPainter {
       canvas.drawColor(renderer.background, BlendMode.src);
       return;
     }
-    renderer.paintPanel(canvas, tf, levels);
+    renderer.paintPanel(canvas, tf, pixels);
   }
 
   @override
