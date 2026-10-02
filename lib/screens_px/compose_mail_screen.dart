@@ -13,6 +13,7 @@ import '../models/friend.dart';
 import '../repositories/friend_repository.dart';
 import '../repositories/mail_repository.dart';
 import 'friend_picker_screen.dart';
+import 'photo_source_screen.dart';
 import 'pixel_text_region.dart';
 import 'pixel_ui.dart';
 
@@ -138,9 +139,15 @@ class _ComposeMailScreenState extends State<ComposeMailScreen> {
   }
 
   Future<void> _pickPhoto() async {
-    final picked = await ImagePicker().pickImage(source: ImageSource.gallery);
+    // 入手方法を選ぶ（カメラ/ギャラリー）。
+    final source = await Navigator.of(context).push<ImageSource>(
+      pixelRoute((_) => PhotoSourceScreen(font: widget.font)),
+    );
+    if (source == null) return;
+    final picked = await ImagePicker().pickImage(source: source);
     if (picked == null) return;
     final bytes = await picked.readAsBytes();
+    // どちらで得た写真も、低画質化は送信時に通す（既存どおり）。
     setState(() {
       _photo = bytes;
       _key++;
