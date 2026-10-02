@@ -4,10 +4,14 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'config/supabase_config.dart';
 import 'engine/bdf_font.dart';
 import 'engine/font_loader.dart';
+import 'engine/pixel_route.dart';
 import 'repositories/auth_repository.dart';
+import 'repositories/friend_repository.dart';
 import 'repositories/profile_repository.dart';
 import 'repositories/supabase_auth_repository.dart';
+import 'repositories/supabase_friend_repository.dart';
 import 'repositories/supabase_profile_repository.dart';
+import 'screens_px/friends_screen.dart';
 import 'screens_px/login_screen.dart';
 import 'screens_px/menu_screen.dart';
 import 'screens_px/profile_setup_screen.dart';
@@ -49,6 +53,7 @@ class _RootState extends State<_Root> {
   final _client = Supabase.instance.client;
   late final AuthRepository _auth = SupabaseAuthRepository(_client);
   late final ProfileRepository _profile = SupabaseProfileRepository(_client);
+  late final FriendRepository _friends = SupabaseFriendRepository(_client);
 
   @override
   Widget build(BuildContext context) {
@@ -73,6 +78,7 @@ class _RootState extends State<_Root> {
                 font: font,
                 auth: _auth,
                 profile: _profile,
+                friends: _friends,
               );
             },
           );
@@ -88,11 +94,13 @@ class _ProfileGate extends StatefulWidget {
     required this.font,
     required this.auth,
     required this.profile,
+    required this.friends,
   });
 
   final BdfFont font;
   final AuthRepository auth;
   final ProfileRepository profile;
+  final FriendRepository friends;
 
   @override
   State<_ProfileGate> createState() => _ProfileGateState();
@@ -103,9 +111,15 @@ class _ProfileGateState extends State<_ProfileGate> {
 
   void _onActivate(String item) {
     switch (item) {
+      case '電話帳':
+        Navigator.of(context).push(pixelRoute((_) => FriendsScreen(
+            font: widget.font,
+            friendRepository: widget.friends,
+          ),
+        ));
       case 'ログアウト':
         widget.auth.signOut();
-      // ほかの項目（電話帳・自己紹介・着せ替え）は移植でき次第つなぐ。
+      // 自己紹介・着せ替えは移植でき次第つなぐ。
     }
   }
 

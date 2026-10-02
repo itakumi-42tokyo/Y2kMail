@@ -1,70 +1,36 @@
-import 'dart:typed_data';
-
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kengai/engine/bdf_font.dart';
+import 'package:kengai/engine/framebuffer.dart';
 
-import 'package:kengai/repositories/auth_repository.dart';
-import 'package:kengai/repositories/profile_repository.dart';
-import 'package:kengai/screens/login_screen.dart';
-import 'package:kengai/screens/profile_setup_screen.dart';
-
-class FakeAuthRepository implements AuthRepository {
-  @override
-  Stream<bool> get isSignedInStream => const Stream.empty();
-
-  @override
-  String? get currentUserId => null;
-
-  @override
-  Future<void> sendEmailOtp(String email) async {}
-
-  @override
-  Future<void> signInWithGoogle() async {}
-
-  @override
-  Future<void> signOut() async {}
-}
-
-class FakeProfileRepository implements ProfileRepository {
-  @override
-  Future<bool> hasProfile() async => false;
-
-  @override
-  Future<void> createProfile(String displayName) async {}
-
-  @override
-  Future<String> fetchDisplayName() async => 'テスト太郎';
-
-  @override
-  Future<void> setIntroPhoto(Uint8List originalPhotoBytes) async {}
-
-  @override
-  Future<Uint8List?> fetchIntroPhoto() async => null;
-}
+// フォントが無くても検証できる、フレームバッファの基本動作のテスト。
+BdfFont _emptyFont() => BdfFont(const {}, cellHeight: 16);
 
 void main() {
-  testWidgets('未ログイン時はメールアドレス入力欄が表示される', (WidgetTester tester) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        home: LoginScreen(authRepository: FakeAuthRepository()),
-      ),
-    );
-
-    expect(find.text('メールアドレス'), findsOneWidget);
-    expect(find.text('ログイン用リンクを送る'), findsOneWidget);
+  test('setPixel と getPixel が対応する', () {
+    final fb = Framebuffer(_emptyFont());
+    expect(fb.getPixel(10, 20), isFalse);
+    fb.setPixel(10, 20, on: true);
+    expect(fb.getPixel(10, 20), isTrue);
+    fb.setPixel(10, 20, on: false);
+    expect(fb.getPixel(10, 20), isFalse);
   });
 
-  testWidgets('プロフィール作成画面に表示名入力欄が表示される', (WidgetTester tester) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        home: ProfileSetupScreen(
-          profileRepository: FakeProfileRepository(),
-          onCreated: () {},
-        ),
-      ),
-    );
+  test('画面外への描画は無視される', () {
+    final fb = Framebuffer(_emptyFont());
+    fb.setPixel(-1, 0, on: true);
+    fb.setPixel(Framebuffer.width, 0, on: true);
+    fb.setPixel(0, Framebuffer.height, on: true);
+    // 例外が出ず、範囲外は点灯しない。
+    expect(fb.getPixel(0, 0), isFalse);
+  });
 
-    expect(find.text('表示名'), findsOneWidget);
-    expect(find.text('決定'), findsOneWidget);
+  test('fillRect と clear が効く', () {
+    final fb = Framebuffer(_emptyFont());
+    fb.fillRect(2, 3, 4, 5, on: true);
+    expect(fb.getPixel(2, 3), isTrue);
+    expect(fb.getPixel(5, 7), isTrue);
+    expect(fb.getPixel(6, 8), isFalse);
+    fb.clear();
+    expect(fb.getPixel(2, 3), isFalse);
   });
 }

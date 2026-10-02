@@ -44,8 +44,9 @@ dependencies:
   # 見た目の確認用（ギャラリーから写真を選ぶため）
   image_picker: ^1.1.2
 
-  # QRコードの表示と読み取り（近距離でのアドレス交換）
-  qr_flutter: ^4.1.0
+  # QRコードの生成（モジュール計算）と読み取り（近距離でのアドレス交換）
+  # 表示はフレームバッファへ自前描画するため、qr_flutterではなくqrを直接使う。
+  qr: ^3.0.2
   mobile_scanner: ^5.2.3
 
 dev_dependencies:
