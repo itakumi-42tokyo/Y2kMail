@@ -1,0 +1,4 @@
+美咲フォント（MisakiGothic 8x8 BDF版）
+作者: 門真 なむ（Kadoma Num） https://littlelimit.net/misaki.htm
+ライセンス: 自由に使用・改変・再配布できる（パブリックドメイン相当）。
+用途: 8ドット表示（選択操作バー等）。

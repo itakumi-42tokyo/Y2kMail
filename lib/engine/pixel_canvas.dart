@@ -16,6 +16,8 @@ class LedCanvas extends StatefulWidget {
     this.onTapDown,
     this.onLongPressStart,
     this.onLongPressMoveUpdate,
+    this.onPanStart,
+    this.onPanUpdate,
     this.repaintKey = 0,
     this.renderer,
   });
@@ -25,6 +27,8 @@ class LedCanvas extends StatefulWidget {
   final void Function(int x, int y)? onTapDown;
   final void Function(int x, int y)? onLongPressStart;
   final void Function(int x, int y)? onLongPressMoveUpdate;
+  final void Function(int x, int y)? onPanStart;
+  final void Function(int x, int y)? onPanUpdate;
   final int repaintKey;
 
   /// 表示パネル。省略時は丸型電球。
@@ -110,6 +114,8 @@ class _LedCanvasState extends State<LedCanvas> {
               dispatch(widget.onLongPressStart, d.localPosition),
           onLongPressMoveUpdate: (d) =>
               dispatch(widget.onLongPressMoveUpdate, d.localPosition),
+          onPanStart: (d) => dispatch(widget.onPanStart, d.localPosition),
+          onPanUpdate: (d) => dispatch(widget.onPanUpdate, d.localPosition),
           child: CustomPaint(
             size: Size(constraints.maxWidth, constraints.maxHeight),
             painter: _PanelPainter(

@@ -14,11 +14,13 @@ class MailMenuScreen extends StatefulWidget {
   const MailMenuScreen({
     super.key,
     required this.font,
+    required this.barFont,
     required this.friendRepository,
     required this.mailRepository,
   });
 
   final BdfFont font;
+  final BdfFont barFont;
   final FriendRepository friendRepository;
   final MailRepository mailRepository;
 
@@ -61,6 +63,7 @@ class _MailMenuScreenState extends State<MailMenuScreen> {
   Future<void> _compose() async {
     await Navigator.of(context).push(pixelRoute((_) => ComposeMailScreen(
           font: widget.font,
+          barFont: widget.barFont,
           friendRepository: widget.friendRepository,
           mailRepository: widget.mailRepository,
         )));

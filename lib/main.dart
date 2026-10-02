@@ -52,8 +52,14 @@ class _Root extends StatefulWidget {
 }
 
 class _RootState extends State<_Root> {
-  late final Future<BdfFont> _fontFuture = loadUnifont();
+  late final Future<(BdfFont, BdfFont)> _fontsFuture = _loadFonts();
   final _client = Supabase.instance.client;
+
+  Future<(BdfFont, BdfFont)> _loadFonts() async {
+    final uni = await loadUnifont();
+    final misaki = await loadMisaki();
+    return (uni, misaki);
+  }
   late final AuthRepository _auth = SupabaseAuthRepository(_client);
   late final ProfileRepository _profile = SupabaseProfileRepository(_client);
   late final FriendRepository _friends = SupabaseFriendRepository(_client);
@@ -63,13 +69,13 @@ class _RootState extends State<_Root> {
   Widget build(BuildContext context) {
     return Directionality(
       textDirection: TextDirection.ltr,
-      child: FutureBuilder<BdfFont>(
-        future: _fontFuture,
+      child: FutureBuilder<(BdfFont, BdfFont)>(
+        future: _fontsFuture,
         builder: (context, fontSnap) {
           if (!fontSnap.hasData) {
             return const ColoredBox(color: Color(0xFF000000));
           }
-          final font = fontSnap.data!;
+          final (font, barFont) = fontSnap.data!;
           return StreamBuilder<bool>(
             stream: _auth.isSignedInStream,
             initialData: _auth.currentUserId != null,
@@ -80,6 +86,7 @@ class _RootState extends State<_Root> {
               }
               return _ProfileGate(
                 font: font,
+                barFont: barFont,
                 auth: _auth,
                 profile: _profile,
                 friends: _friends,
@@ -97,6 +104,7 @@ class _RootState extends State<_Root> {
 class _ProfileGate extends StatefulWidget {
   const _ProfileGate({
     required this.font,
+    required this.barFont,
     required this.auth,
     required this.profile,
     required this.friends,
@@ -104,6 +112,7 @@ class _ProfileGate extends StatefulWidget {
   });
 
   final BdfFont font;
+  final BdfFont barFont;
   final AuthRepository auth;
   final ProfileRepository profile;
   final FriendRepository friends;
@@ -121,6 +130,7 @@ class _ProfileGateState extends State<_ProfileGate> {
       case 'メール':
         Navigator.of(context).push(pixelRoute((_) => MailMenuScreen(
               font: widget.font,
+              barFont: widget.barFont,
               friendRepository: widget.friends,
               mailRepository: widget.mail,
             )));

@@ -15,11 +15,13 @@ import 'friend_picker_screen.dart';
 import 'pixel_text_region.dart';
 import 'pixel_ui.dart';
 
-// メール新規作成。件名・本文は自前のテキスト編集（カーソル/選択/変換中/自作メニュー）。
+// メール新規作成。件名・本文は自前のテキスト編集。
+// 選択中は最下段をソフトキー風の操作バーに切り替える（8pxフォント）。
 class ComposeMailScreen extends StatefulWidget {
   const ComposeMailScreen({
     super.key,
     required this.font,
+    required this.barFont,
     required this.friendRepository,
     required this.mailRepository,
     this.initialTo,
@@ -27,6 +29,7 @@ class ComposeMailScreen extends StatefulWidget {
   });
 
   final BdfFont font;
+  final BdfFont barFont; // 8ドット（操作バー用）
   final FriendRepository friendRepository;
   final MailRepository mailRepository;
   final Friend? initialTo;
@@ -52,8 +55,10 @@ class _ComposeMailScreenState extends State<ComposeMailScreen> {
   int _key = 0;
 
   bool _caretOn = true;
-  bool _menuForced = false;
   Timer? _blink;
+
+  PixelTextRegion? _panRegion;
+  int _panLastY = 0;
 
   static const int _toY = 20;
   static const int _subjectY = 42;
@@ -61,10 +66,9 @@ class _ComposeMailScreenState extends State<ComposeMailScreen> {
   static const int _bodyH = 36;
   static const int _photoY = 104;
   static const int _sendY = 126;
+  static const int _barY = 144; // 操作バー（選択中のみ）
 
-  // 自作メニュー（選択/長押し時）の領域。
-  static const int _menuX = 8, _menuY = 22, _menuW = 104, _menuRowTop = 24;
-  static const _menuLabels = ['コピー', 'きりとり', 'はりつけ', 'ぜんせんたく'];
+  static const _barLabels = ['コピー', '切取', '貼付', '全選択'];
 
   @override
   void initState() {
@@ -73,16 +77,12 @@ class _ComposeMailScreenState extends State<ComposeMailScreen> {
     if (widget.initialSubject != null) _subject.text = widget.initialSubject!;
 
     _subjectRegion = PixelTextRegion(
-      controller: _subject,
-      focus: _subjectFocus,
-      font: widget.font,
+      controller: _subject, focus: _subjectFocus, font: widget.font,
       x: 4, y: _subjectY, w: 112, h: 18,
       lineHeight: 16, maxLines: 1, singleLine: true,
     );
     _bodyRegion = PixelTextRegion(
-      controller: _body,
-      focus: _bodyFocus,
-      font: widget.font,
+      controller: _body, focus: _bodyFocus, font: widget.font,
       x: 4, y: _bodyY, w: 112, h: _bodyH,
       lineHeight: 16, maxLines: 2, singleLine: false,
     );
@@ -110,7 +110,7 @@ class _ComposeMailScreenState extends State<ComposeMailScreen> {
     return null;
   }
 
-  bool get _menuVisible => _menuForced || (_active?.hasSelection ?? false);
+  bool get _barVisible => _active?.hasSelection ?? false;
 
   bool _hit(int y, int top, [int h = PixelUi.buttonH]) =>
       y >= top && y < top + h;
@@ -174,10 +174,10 @@ class _ComposeMailScreenState extends State<ComposeMailScreen> {
     }
   }
 
-  Future<void> _menuAction(int row) async {
+  Future<void> _barAction(int cell) async {
     final r = _active;
     if (r != null) {
-      switch (row) {
+      switch (cell) {
         case 0:
           await r.copy();
         case 1:
@@ -188,27 +188,16 @@ class _ComposeMailScreenState extends State<ComposeMailScreen> {
           r.selectAll();
       }
     }
-    setState(() {
-      _menuForced = false;
-      _key++;
-    });
+    setState(() => _key++);
   }
 
   void _onTap(int x, int y) {
     if (_sending) return;
-    // メニューが出ているときは最優先で処理。
-    if (_menuVisible &&
-        x >= _menuX &&
-        x < _menuX + _menuW &&
-        y >= _menuRowTop &&
-        y < _menuRowTop + 4 * 16) {
-      _menuAction((y - _menuRowTop) ~/ 16);
+    // 操作バー（最優先）。
+    if (_barVisible && y >= _barY) {
+      _barAction((x ~/ 30).clamp(0, 3));
       return;
     }
-    setState(() {
-      _menuForced = false;
-      _key++;
-    });
     if (_subjectRegion.contains(x, y)) {
       _subjectRegion.placeCaret(x, y);
     } else if (_bodyRegion.contains(x, y)) {
@@ -220,6 +209,7 @@ class _ComposeMailScreenState extends State<ComposeMailScreen> {
     } else if (_hit(y, _sendY)) {
       _send();
     }
+    setState(() => _key++);
   }
 
   void _onLongPressStart(int x, int y) {
@@ -229,15 +219,33 @@ class _ComposeMailScreenState extends State<ComposeMailScreen> {
     if (_bodyRegion.contains(x, y)) r = _bodyRegion;
     if (r == null) return;
     r.selectAt(x, y);
-    setState(() {
-      _menuForced = true;
-      _key++;
-    });
+    setState(() => _key++);
   }
 
   void _onLongPressMove(int x, int y) {
     _active?.extendTo(x, y);
     setState(() => _key++);
+  }
+
+  // 長押しなしのドラッグ＝スクロール。
+  void _onPanStart(int x, int y) {
+    PixelTextRegion? r;
+    if (_subjectRegion.contains(x, y)) r = _subjectRegion;
+    if (_bodyRegion.contains(x, y)) r = _bodyRegion;
+    _panRegion = r;
+    _panLastY = y;
+  }
+
+  void _onPanUpdate(int x, int y) {
+    final r = _panRegion;
+    if (r == null) return;
+    final dy = y - _panLastY;
+    final lines = dy ~/ 16;
+    if (lines != 0) {
+      r.scrollByLines(-lines);
+      _panLastY += lines * 16;
+      setState(() => _key++);
+    }
   }
 
   void _paint(Framebuffer fb) {
@@ -246,12 +254,10 @@ class _ComposeMailScreenState extends State<ComposeMailScreen> {
 
     PixelUi.field(fb, 4, _toY, 112, _to?.displayName ?? '（あて先をえらぶ）');
 
-    // 件名欄（枠）＋編集描画。
     fb.rect(4, _subjectY, 112, 18, on: true);
     _subjectRegion.draw(fb,
         caretOn: _caretOn, active: identical(_active, _subjectRegion));
 
-    // 本文欄（枠）＋編集描画。
     fb.rect(4, _bodyY, 112, _bodyH, on: true);
     _bodyRegion.draw(fb,
         caretOn: _caretOn, active: identical(_active, _bodyRegion));
@@ -261,15 +267,19 @@ class _ComposeMailScreenState extends State<ComposeMailScreen> {
 
     if (_error != null) fb.drawTextCentered(150, _error!, on: true);
 
-    if (_menuVisible) _drawMenu(fb);
+    if (_barVisible) _drawBar(fb);
   }
 
-  void _drawMenu(Framebuffer fb) {
-    fb.fillRect(_menuX, _menuY, _menuW, 4 * 16 + 4, on: false);
-    fb.rect(_menuX, _menuY, _menuW, 4 * 16 + 4, on: true);
-    for (var i = 0; i < _menuLabels.length; i++) {
-      fb.drawText(_menuX + 4, _menuRowTop + i * 16, _menuLabels[i],
-          on: true, clipRight: _menuX + _menuW - 4);
+  // 選択操作バー（最下段1行・8pxフォント）。反転表示。
+  void _drawBar(Framebuffer fb) {
+    fb.fillRect(0, _barY, Framebuffer.width, 16, on: true);
+    for (var i = 0; i < 4; i++) {
+      final cx = i * 30;
+      if (i > 0) fb.vLine(cx, _barY + 2, 12, on: false);
+      final label = _barLabels[i];
+      final tw = fb.textWidth(label, font: widget.barFont);
+      fb.drawText(cx + (30 - tw) ~/ 2, _barY + 4, label,
+          on: false, font: widget.barFont, clipRight: cx + 29);
     }
   }
 
@@ -313,6 +323,8 @@ class _ComposeMailScreenState extends State<ComposeMailScreen> {
           onTapDown: _onTap,
           onLongPressStart: _onLongPressStart,
           onLongPressMoveUpdate: _onLongPressMove,
+          onPanStart: _onPanStart,
+          onPanUpdate: _onPanUpdate,
         ),
         _hiddenInput(_subject, _subjectFocus, false),
         _hiddenInput(_body, _bodyFocus, true),

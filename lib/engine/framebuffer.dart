@@ -62,10 +62,11 @@ class Framebuffer {
     }
   }
 
-  int textWidth(String s) {
+  int textWidth(String s, {BdfFont? font}) {
+    final f = font ?? this.font;
     var total = 0;
     for (final rune in s.runes) {
-      final g = font.glyphFor(rune);
+      final g = f.glyphFor(rune);
       total += g?.advance ?? 8;
     }
     return total;
@@ -74,15 +75,16 @@ class Framebuffer {
   // 文字列を描く。on=false にすると、点灯部をくり抜く（反転表示に使う）。
   // clipLeft / clipRight を与えると、その範囲外の点は描かない（入力欄の枠内に収める）。
   int drawText(int x, int y, String s,
-      {bool on = true, int? clipRight, int? clipLeft}) {
+      {bool on = true, int? clipRight, int? clipLeft, BdfFont? font}) {
+    final f = font ?? this.font;
     var cx = x;
     for (final rune in s.runes) {
-      final g = font.glyphFor(rune);
+      final g = f.glyphFor(rune);
       if (g == null) {
         cx += 8;
         continue;
       }
-      for (var row = 0; row < font.cellHeight; row++) {
+      for (var row = 0; row < f.cellHeight; row++) {
         for (var col = 0; col < g.width; col++) {
           if (!g.isOn(col, row)) continue;
           final px = cx + col;

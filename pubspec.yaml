@@ -76,6 +76,9 @@ flutter:
     # TTF/Textウィジェットは使わず、このBDFをフレームバッファに描画する。
     - assets/fonts/unifont.bdf
     - assets/fonts/unifont-LICENSE.txt
+    # 8ドット日本語フォント（選択操作バー等の小さい表示用）。
+    - assets/fonts/misaki_gothic.bdf
+    - assets/fonts/misaki-LICENSE.txt
 
   # To add assets to your application, add an assets section, like this:
   # assets:

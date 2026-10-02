@@ -48,14 +48,29 @@ class BdfFont {
 
   /// アセットのBDF文字列を、別スレッド（Isolate）でパースして読み込む。
   static Future<BdfFont> parse(String bdfText) async {
-    final glyphs = await Isolate.run(() => _parse(bdfText));
-    return BdfFont(glyphs, cellHeight: 16);
+    final result = await Isolate.run(() => _parse(bdfText));
+    return BdfFont(result.$1, cellHeight: result.$2);
   }
 
-  static Map<int, Glyph> _parse(String text) {
-    const fontAscent = 14; // FONTBOUNDINGBOX 16 16 0 -2 より（16-2=14）
+  // (グリフ表, セル高さ) を返す。
+  static (Map<int, Glyph>, int) _parse(String text) {
     final glyphs = <int, Glyph>{};
     final lines = text.split('\n');
+
+    // FONTBOUNDINGBOX "w h xoff yoff" から高さ・ベースラインを決める。
+    int cellHeight = 16;
+    int fontAscent = 14;
+    for (final line in lines) {
+      if (line.startsWith('FONTBOUNDINGBOX')) {
+        final p = line.substring(15).trim().split(RegExp(r'\s+'));
+        final h = int.parse(p[1]);
+        final yoff = int.parse(p[3]);
+        cellHeight = h;
+        fontAscent = h + yoff; // 例: 16+(-2)=14, 8+(-2)=6
+        break;
+      }
+      if (line.startsWith('STARTCHAR')) break;
+    }
 
     int i = 0;
     while (i < lines.length) {
@@ -111,6 +126,6 @@ class BdfFont {
         );
       }
     }
-    return glyphs;
+    return (glyphs, cellHeight);
   }
 }
