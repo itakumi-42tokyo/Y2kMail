@@ -98,4 +98,35 @@ class Framebuffer {
     final w = textWidth(s);
     drawText((width - w) ~/ 2, y, s, on: on);
   }
+
+  // 折り返しながら複数行で描く。改行(\n)でも折り返す。描いた行数を返す。
+  int drawTextWrapped(
+    int x,
+    int y,
+    int maxWidth,
+    int lineH,
+    int maxLines,
+    String s, {
+    bool on = true,
+  }) {
+    var line = 0;
+    for (final paragraph in s.split('\n')) {
+      var cur = '';
+      for (final rune in paragraph.runes) {
+        final ch = String.fromCharCode(rune);
+        if (textWidth(cur + ch) > maxWidth && cur.isNotEmpty) {
+          if (line >= maxLines) return line;
+          drawText(x, y + line * lineH, cur, on: on);
+          line++;
+          cur = ch;
+        } else {
+          cur += ch;
+        }
+      }
+      if (line >= maxLines) return line;
+      drawText(x, y + line * lineH, cur, on: on);
+      line++;
+    }
+    return line;
+  }
 }

@@ -24,7 +24,7 @@ class MenuScreen extends StatefulWidget {
 }
 
 class _MenuScreenState extends State<MenuScreen> {
-  static const items = ['電話帳', '自己紹介', '着せ替え', 'ログアウト'];
+  static const items = ['メール', '電話帳', '自己紹介', '着せ替え', 'ログアウト'];
 
   int _selected = 0;
   int _key = 0;
