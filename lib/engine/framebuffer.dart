@@ -2,8 +2,9 @@ import 'dart:typed_data';
 
 import 'bdf_font.dart';
 
-// 120x160 の仮想フレームバッファ（RGBA）。
-// すべての描画はここに整数ドット単位で行う。
+// 120x160 の仮想フレームバッファ。
+// 各ドットは明るさ(0-255)を持つ。色や形は描画時（PanelRenderer）が決める。
+// フォントやこのバッファの中身は、パネルの見せ方に依存しない。
 class Framebuffer {
   Framebuffer(this.font);
 
@@ -11,62 +12,52 @@ class Framebuffer {
   static const int height = 160;
 
   final BdfFont font;
-  final Uint8List pixels = Uint8List(width * height * 4);
 
-  void clear(List<int> color) {
-    for (var y = 0; y < height; y++) {
-      for (var x = 0; x < width; x++) {
-        _set(x, y, color);
-      }
-    }
+  // 1ドット1バイトの明るさ（0=消灯 〜 255=最大）。
+  final Uint8List levels = Uint8List(width * height);
+
+  void clear({bool on = false}) {
+    levels.fillRange(0, levels.length, on ? 255 : 0);
   }
 
-  void setPixel(int x, int y, List<int> color) {
+  void setPixel(int x, int y, {bool on = true}) {
+    setBrightness(x, y, on ? 255 : 0);
+  }
+
+  void setBrightness(int x, int y, int level) {
     if (x < 0 || x >= width || y < 0 || y >= height) return;
-    _set(x, y, color);
+    levels[y * width + x] = level.clamp(0, 255);
   }
 
-  void _set(int x, int y, List<int> color) {
-    final i = (y * width + x) * 4;
-    pixels[i] = color[0];
-    pixels[i + 1] = color[1];
-    pixels[i + 2] = color[2];
-    pixels[i + 3] = color[3];
+  bool getPixel(int x, int y) {
+    if (x < 0 || x >= width || y < 0 || y >= height) return false;
+    return levels[y * width + x] > 0;
   }
 
-  void fillRect(int x, int y, int w, int h, List<int> color) {
+  void fillRect(int x, int y, int w, int h, {bool on = true}) {
     for (var yy = y; yy < y + h; yy++) {
       for (var xx = x; xx < x + w; xx++) {
-        setPixel(xx, yy, color);
+        setPixel(xx, yy, on: on);
       }
     }
   }
 
-  // 枠線だけ描く。
-  void rect(int x, int y, int w, int h, List<int> color) {
-    hLine(x, y, w, color);
-    hLine(x, y + h - 1, w, color);
-    vLine(x, y, h, color);
-    vLine(x + w - 1, y, h, color);
+  void rect(int x, int y, int w, int h, {bool on = true}) {
+    hLine(x, y, w, on: on);
+    hLine(x, y + h - 1, w, on: on);
+    vLine(x, y, h, on: on);
+    vLine(x + w - 1, y, h, on: on);
   }
 
-  void hLine(int x, int y, int len, List<int> color) {
+  void hLine(int x, int y, int len, {bool on = true}) {
     for (var xx = x; xx < x + len; xx++) {
-      setPixel(xx, y, color);
+      setPixel(xx, y, on: on);
     }
   }
 
-  void vLine(int x, int y, int len, List<int> color) {
+  void vLine(int x, int y, int len, {bool on = true}) {
     for (var yy = y; yy < y + len; yy++) {
-      setPixel(x, yy, color);
-    }
-  }
-
-  // グラデーションの代わりに、1行おきの横縞で濃淡を表す（ディザ風）。
-  void fillDither(int x, int y, int w, int h, List<int> color) {
-    for (var yy = y; yy < y + h; yy++) {
-      if (yy.isEven) continue;
-      hLine(x, yy, w, color);
+      setPixel(x, yy, on: on);
     }
   }
 
@@ -79,8 +70,8 @@ class Framebuffer {
     return total;
   }
 
-  // 文字列を描画し、描画後の右端X座標を返す。
-  int drawText(int x, int y, String s, List<int> color) {
+  // 文字列を描く。on=false にすると、点灯部をくり抜く（反転表示に使う）。
+  int drawText(int x, int y, String s, {bool on = true}) {
     var cx = x;
     for (final rune in s.runes) {
       final g = font.glyphFor(rune);
@@ -91,7 +82,7 @@ class Framebuffer {
       for (var row = 0; row < font.cellHeight; row++) {
         for (var col = 0; col < g.width; col++) {
           if (g.isOn(col, row)) {
-            setPixel(cx + col, y + row, color);
+            setPixel(cx + col, y + row, on: on);
           }
         }
       }
@@ -100,9 +91,8 @@ class Framebuffer {
     return cx;
   }
 
-  // 中央寄せでテキストを描く。
-  void drawTextCentered(int y, String s, List<int> color) {
+  void drawTextCentered(int y, String s, {bool on = true}) {
     final w = textWidth(s);
-    drawText((width - w) ~/ 2, y, s, color);
+    drawText((width - w) ~/ 2, y, s, on: on);
   }
 }

@@ -1,96 +1,115 @@
-import 'dart:ui' as ui;
+import 'dart:typed_data';
 
 import 'package:flutter/widgets.dart';
 
 import 'bdf_font.dart';
 import 'framebuffer.dart';
+import 'panel_renderer.dart';
 
-// 仮想フレームバッファ(120x160)を整数倍・補間なしで画面に表示する土台。
-// [paint] でバッファに描き、タップは仮想ドット座標で [onTapDown] に渡す。
-class PixelCanvas extends StatefulWidget {
-  const PixelCanvas({
+// 仮想フレームバッファ(120x160)を、差し替え可能な PanelRenderer で表示する。
+// [paint] でバッファに明るさを書き、タップは仮想ドット座標で [onTapDown] に返す。
+class LedCanvas extends StatefulWidget {
+  const LedCanvas({
     super.key,
     required this.font,
     required this.paint,
     this.onTapDown,
     this.repaintKey = 0,
+    this.renderer,
   });
 
   final BdfFont font;
   final void Function(Framebuffer fb) paint;
   final void Function(int x, int y)? onTapDown;
-
-  /// この値が変わると再描画する。
   final int repaintKey;
 
+  /// 表示パネル。省略時は丸型電球。
+  final PanelRenderer? renderer;
+
   @override
-  State<PixelCanvas> createState() => _PixelCanvasState();
+  State<LedCanvas> createState() => _LedCanvasState();
 }
 
-class _PixelCanvasState extends State<PixelCanvas> {
+class _LedCanvasState extends State<LedCanvas> {
   late final Framebuffer _fb = Framebuffer(widget.font);
-  ui.Image? _image;
+  late final PanelRenderer _renderer = widget.renderer ?? BulbPanelRenderer();
+
+  int _cellPx = 0;
+  double _offX = 0, _offY = 0;
+  List<RSTransform>? _transforms;
   int _lastKey = -1;
+  int _ready = 0; // スプライト準備が整うたびに増やして再描画を促す
 
-  @override
-  void initState() {
-    super.initState();
-    _rebuild();
+  void _ensurePainted() {
+    if (widget.repaintKey != _lastKey) {
+      _lastKey = widget.repaintKey;
+      widget.paint(_fb);
+    }
   }
 
-  @override
-  void didUpdateWidget(PixelCanvas old) {
-    super.didUpdateWidget(old);
-    if (widget.repaintKey != _lastKey) _rebuild();
-  }
+  void _updateGeometry(BoxConstraints constraints) {
+    final sx = constraints.maxWidth ~/ Framebuffer.width;
+    final sy = constraints.maxHeight ~/ Framebuffer.height;
+    final cell = (sx < sy ? sx : sy).clamp(1, 100);
+    final dw = Framebuffer.width * cell;
+    final dh = Framebuffer.height * cell;
+    _offX = (constraints.maxWidth - dw) / 2;
+    _offY = (constraints.maxHeight - dh) / 2;
 
-  void _rebuild() {
-    _lastKey = widget.repaintKey;
-    widget.paint(_fb);
-    ui.decodeImageFromPixels(
-      _fb.pixels,
-      Framebuffer.width,
-      Framebuffer.height,
-      ui.PixelFormat.rgba8888,
-      (img) {
-        if (mounted) setState(() => _image = img);
-      },
-    );
+    if (cell != _cellPx) {
+      _cellPx = cell;
+      // 高解像度スプライト(spriteSize)を、1セル(cell)に縮小して中央へ置く。
+      final spr = _renderer.spriteSize;
+      final s = cell / spr;
+      final half = spr / 2;
+      final tf = <RSTransform>[];
+      for (var y = 0; y < Framebuffer.height; y++) {
+        for (var x = 0; x < Framebuffer.width; x++) {
+          tf.add(RSTransform.fromComponents(
+            rotation: 0,
+            scale: s,
+            anchorX: half,
+            anchorY: half,
+            translateX: _offX + x * cell + cell / 2,
+            translateY: _offY + y * cell + cell / 2,
+          ));
+        }
+      }
+      _transforms = tf;
+      _renderer.prepare().then((_) {
+        if (mounted) setState(() => _ready++);
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    _ensurePainted();
     return LayoutBuilder(
       builder: (context, constraints) {
-        // 画面に収まる最大の整数倍率を求める。
-        final sx = constraints.maxWidth ~/ Framebuffer.width;
-        final sy = constraints.maxHeight ~/ Framebuffer.height;
-        final scale = (sx < sy ? sx : sy).clamp(1, 100);
-        final dw = Framebuffer.width * scale;
-        final dh = Framebuffer.height * scale;
-        final offX = (constraints.maxWidth - dw) / 2;
-        final offY = (constraints.maxHeight - dh) / 2;
-
+        _updateGeometry(constraints);
         return GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTapDown: (details) {
             final cb = widget.onTapDown;
-            if (cb == null) return;
-            final lx = details.localPosition.dx - offX;
-            final ly = details.localPosition.dy - offY;
-            if (lx < 0 || ly < 0 || lx >= dw || ly >= dh) return;
-            cb(lx ~/ scale, ly ~/ scale);
+            if (cb == null || _cellPx == 0) return;
+            final lx = details.localPosition.dx - _offX;
+            final ly = details.localPosition.dy - _offY;
+            if (lx < 0 || ly < 0) return;
+            final vx = lx ~/ _cellPx;
+            final vy = ly ~/ _cellPx;
+            if (vx >= Framebuffer.width || vy >= Framebuffer.height) return;
+            cb(vx, vy);
           },
-          child: Container(
-            color: const Color(0xFF000000), // 余白は黒（端末のフチ風）
-            alignment: Alignment.center,
-            child: _image == null
-                ? const SizedBox.shrink()
-                : SizedBox(
-                    width: dw.toDouble(),
-                    height: dh.toDouble(),
-                    child: CustomPaint(painter: _ImagePainter(_image!)),
-                  ),
+          child: CustomPaint(
+            size: Size(constraints.maxWidth, constraints.maxHeight),
+            painter: _PanelPainter(
+              renderer: _renderer,
+              transforms: _transforms,
+              levels: _fb.levels,
+              cell: _cellPx,
+              repaint: widget.repaintKey ^ (_ready << 20),
+            ),
           ),
         );
       },
@@ -98,29 +117,32 @@ class _PixelCanvasState extends State<PixelCanvas> {
   }
 }
 
-class _ImagePainter extends CustomPainter {
-  _ImagePainter(this.image);
+class _PanelPainter extends CustomPainter {
+  _PanelPainter({
+    required this.renderer,
+    required this.transforms,
+    required this.levels,
+    required this.cell,
+    required this.repaint,
+  });
 
-  final ui.Image image;
+  final PanelRenderer renderer;
+  final List<RSTransform>? transforms;
+  final Uint8List levels;
+  final int cell;
+  final int repaint;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final src = Rect.fromLTWH(
-      0,
-      0,
-      image.width.toDouble(),
-      image.height.toDouble(),
-    );
-    final dst = Offset.zero & size;
-    // 補間なしで整数倍拡大する。
-    canvas.drawImageRect(
-      image,
-      src,
-      dst,
-      Paint()..filterQuality = FilterQuality.none,
-    );
+    final tf = transforms;
+    if (tf == null || !renderer.ready) {
+      canvas.drawColor(renderer.background, BlendMode.src);
+      return;
+    }
+    renderer.paintPanel(canvas, tf, levels);
   }
 
   @override
-  bool shouldRepaint(_ImagePainter old) => old.image != image;
+  bool shouldRepaint(_PanelPainter old) =>
+      old.repaint != repaint || old.cell != cell;
 }

@@ -1,11 +1,19 @@
+import 'dart:ui' show Color;
+
 // 使ってよい色はここに定義したものだけ。
-// それぞれ RGBA のバイト列（長さ4, 0〜255）。
+// 現行パネル（丸型電球 LED）の配色。着せ替えはこの値の差し替えで行う。
 class Palette {
-  // モノクロ液晶ふう。文字は黒、背景は灰色。
-  static const List<int> bg = [0xB4, 0xB6, 0xB0, 0xFF]; // 灰色の下地
-  static const List<int> ink = [0x11, 0x11, 0x11, 0xFF]; // ほぼ黒
-  static const List<int> panel = [0xC6, 0xC8, 0xC2, 0xFF]; // 一段明るい面
-  static const List<int> line = [0x6E, 0x70, 0x6A, 0xFF]; // 枠線
-  static const List<int> highlight = [0x30, 0x30, 0x30, 0xFF]; // 選択中の帯
-  static const List<int> onHighlight = [0xC6, 0xC8, 0xC2, 0xFF]; // 選択中の文字
+  // 背景（黒）。
+  static const Color background = Color(0xFF000000);
+
+  // 消灯している電球（直径セル85%の単色円）。
+  static const Color bulbOff = Color(0xFF3A3A3A);
+
+  // 点灯している電球の放射状グラデーション（中心→60%→縁）。
+  static const Color litCenter = Color(0xFFFFF4D6);
+  static const Color litMid = Color(0xFFFFB04A);
+  static const Color litEdge = Color(0xFF8A4A10);
+
+  // 外側のにじむ光（半径1.4倍・不透明度20%程度）。
+  static const Color litGlow = Color(0x33FFB04A);
 }
