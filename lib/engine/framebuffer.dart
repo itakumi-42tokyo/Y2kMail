@@ -72,8 +72,9 @@ class Framebuffer {
   }
 
   // 文字列を描く。on=false にすると、点灯部をくり抜く（反転表示に使う）。
-  // clipRight を与えると、その X 座標を超える点は描かない（入力欄の枠内に収める）。
-  int drawText(int x, int y, String s, {bool on = true, int? clipRight}) {
+  // clipLeft / clipRight を与えると、その範囲外の点は描かない（入力欄の枠内に収める）。
+  int drawText(int x, int y, String s,
+      {bool on = true, int? clipRight, int? clipLeft}) {
     var cx = x;
     for (final rune in s.runes) {
       final g = font.glyphFor(rune);
@@ -86,12 +87,25 @@ class Framebuffer {
           if (!g.isOn(col, row)) continue;
           final px = cx + col;
           if (clipRight != null && px > clipRight) continue;
+          if (clipLeft != null && px < clipLeft) continue;
           setPixel(px, y + row, on: on);
         }
       }
       cx += g.advance;
     }
     return cx;
+  }
+
+  // 範囲をクリップした fillRect（選択の反転塗りに使う）。
+  void fillRectClipped(int x, int y, int w, int h, int clipLeft, int clipRight,
+      {bool on = true}) {
+    final x0 = x < clipLeft ? clipLeft : x;
+    final x1 = (x + w - 1) > clipRight ? clipRight : (x + w - 1);
+    for (var xx = x0; xx <= x1; xx++) {
+      for (var yy = y; yy < y + h; yy++) {
+        setPixel(xx, yy, on: on);
+      }
+    }
   }
 
   void drawTextCentered(int y, String s, {bool on = true}) {

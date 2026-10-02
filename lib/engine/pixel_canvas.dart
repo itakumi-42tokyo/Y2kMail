@@ -14,6 +14,8 @@ class LedCanvas extends StatefulWidget {
     required this.font,
     required this.paint,
     this.onTapDown,
+    this.onLongPressStart,
+    this.onLongPressMoveUpdate,
     this.repaintKey = 0,
     this.renderer,
   });
@@ -21,6 +23,8 @@ class LedCanvas extends StatefulWidget {
   final BdfFont font;
   final void Function(Framebuffer fb) paint;
   final void Function(int x, int y)? onTapDown;
+  final void Function(int x, int y)? onLongPressStart;
+  final void Function(int x, int y)? onLongPressMoveUpdate;
   final int repaintKey;
 
   /// 表示パネル。省略時は丸型電球。
@@ -88,19 +92,24 @@ class _LedCanvasState extends State<LedCanvas> {
     return LayoutBuilder(
       builder: (context, constraints) {
         _updateGeometry(constraints);
+        void dispatch(void Function(int, int)? cb, Offset local) {
+          if (cb == null || _cellPx == 0) return;
+          final lx = local.dx - _offX;
+          final ly = local.dy - _offY;
+          if (lx < 0 || ly < 0) return;
+          final vx = lx ~/ _cellPx;
+          final vy = ly ~/ _cellPx;
+          if (vx >= Framebuffer.width || vy >= Framebuffer.height) return;
+          cb(vx, vy);
+        }
+
         return GestureDetector(
           behavior: HitTestBehavior.opaque,
-          onTapDown: (details) {
-            final cb = widget.onTapDown;
-            if (cb == null || _cellPx == 0) return;
-            final lx = details.localPosition.dx - _offX;
-            final ly = details.localPosition.dy - _offY;
-            if (lx < 0 || ly < 0) return;
-            final vx = lx ~/ _cellPx;
-            final vy = ly ~/ _cellPx;
-            if (vx >= Framebuffer.width || vy >= Framebuffer.height) return;
-            cb(vx, vy);
-          },
+          onTapDown: (d) => dispatch(widget.onTapDown, d.localPosition),
+          onLongPressStart: (d) =>
+              dispatch(widget.onLongPressStart, d.localPosition),
+          onLongPressMoveUpdate: (d) =>
+              dispatch(widget.onLongPressMoveUpdate, d.localPosition),
           child: CustomPaint(
             size: Size(constraints.maxWidth, constraints.maxHeight),
             painter: _PanelPainter(
