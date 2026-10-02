@@ -1,6 +1,7 @@
 import 'dart:async';
-import 'dart:typed_data';
+import 'dart:math';
 
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -59,6 +60,12 @@ class _ComposeMailScreenState extends State<ComposeMailScreen> {
 
   PixelTextRegion? _panRegion;
   int _panLastY = 0;
+
+  // キーボード（入力モード）関連。
+  double _prevKb = 0;
+  bool _kbUp = false;
+  int _visibleRows = 10;
+  double _topInsetPx = 0;
 
   static const int _toY = 20;
   static const int _subjectY = 42;
@@ -191,17 +198,32 @@ class _ComposeMailScreenState extends State<ComposeMailScreen> {
     setState(() => _key++);
   }
 
+  // すでにフォーカス済みの欄をタップしたら、IMEを明示的に出す。
+  void _tapRegion(PixelTextRegion r, int x, int y) {
+    final wasFocused = r.focus.hasFocus;
+    r.placeCaret(x, y);
+    if (wasFocused) {
+      SystemChannels.textInput.invokeMethod<void>('TextInput.show');
+    }
+  }
+
   void _onTap(int x, int y) {
     if (_sending) return;
-    // 操作バー（最優先）。
-    if (_barVisible && y >= _barY) {
+    final barY = _kbUp ? (_visibleRows - 1) * 16 : _barY;
+    if (_barVisible && y >= barY && y < barY + 16) {
       _barAction((x ~/ 30).clamp(0, 3));
       return;
     }
+    if (_kbUp) {
+      final r = _active;
+      if (r != null && r.contains(x, y)) _tapRegion(r, x, y);
+      setState(() => _key++);
+      return;
+    }
     if (_subjectRegion.contains(x, y)) {
-      _subjectRegion.placeCaret(x, y);
+      _tapRegion(_subjectRegion, x, y);
     } else if (_bodyRegion.contains(x, y)) {
-      _bodyRegion.placeCaret(x, y);
+      _tapRegion(_bodyRegion, x, y);
     } else if (_hit(y, _toY)) {
       _pickTo();
     } else if (_hit(y, _photoY)) {
@@ -249,9 +271,30 @@ class _ComposeMailScreenState extends State<ComposeMailScreen> {
   }
 
   void _paint(Framebuffer fb) {
+    // 入力モード: 見出し＋入力中の欄（拡大）＋操作バーだけを、キーボード上に収める。
+    final r = _active;
+    if (_kbUp && r != null) {
+      final rows = _visibleRows;
+      final barOn = r.hasSelection;
+      final fieldLines = (rows - 1 - (barOn ? 1 : 0)).clamp(1, 9);
+      r.setBox(x: 2, y: 16, w: 116, h: fieldLines * 16, maxLines: fieldLines);
+
+      fb.clear();
+      final label = identical(r, _subjectRegion) ? 'けんめい' : 'ほんぶん';
+      fb.fillRect(0, 0, Framebuffer.width, 16, on: true);
+      fb.drawText(2, 0, label, on: false);
+      fb.rect(2, 16, 116, fieldLines * 16, on: true);
+      r.draw(fb, caretOn: _caretOn, active: true);
+      if (barOn) _drawBar(fb, (rows - 1) * 16);
+      return;
+    }
+
+    // 通常レイアウト（欄のジオメトリを元に戻す）。
+    _subjectRegion.setBox(x: 4, y: _subjectY, w: 112, h: 18, maxLines: 1);
+    _bodyRegion.setBox(x: 4, y: _bodyY, w: 112, h: _bodyH, maxLines: 2);
+
     fb.clear();
     PixelUi.titleBar(fb, 'しんきさくせい');
-
     PixelUi.field(fb, 4, _toY, 112, _to?.displayName ?? '（あて先をえらぶ）');
 
     fb.rect(4, _subjectY, 112, 18, on: true);
@@ -266,19 +309,18 @@ class _ComposeMailScreenState extends State<ComposeMailScreen> {
     PixelUi.button(fb, 4, _sendY, 112, _sending ? 'そうしん中…' : 'そうしん');
 
     if (_error != null) fb.drawTextCentered(150, _error!, on: true);
-
-    if (_barVisible) _drawBar(fb);
+    if (_barVisible) _drawBar(fb, _barY);
   }
 
-  // 選択操作バー（最下段1行・8pxフォント）。反転表示。
-  void _drawBar(Framebuffer fb) {
-    fb.fillRect(0, _barY, Framebuffer.width, 16, on: true);
+  // 選択操作バー（1行・8pxフォント）。反転表示。barY に描く。
+  void _drawBar(Framebuffer fb, int barY) {
+    fb.fillRect(0, barY, Framebuffer.width, 16, on: true);
     for (var i = 0; i < 4; i++) {
       final cx = i * 30;
-      if (i > 0) fb.vLine(cx, _barY + 2, 12, on: false);
+      if (i > 0) fb.vLine(cx, barY + 2, 12, on: false);
       final label = _barLabels[i];
       final tw = fb.textWidth(label, font: widget.barFont);
-      fb.drawText(cx + (30 - tw) ~/ 2, _barY + 4, label,
+      fb.drawText(cx + (30 - tw) ~/ 2, barY + 4, label,
           on: false, font: widget.barFont, clipRight: cx + 29);
     }
   }
@@ -314,11 +356,32 @@ class _ComposeMailScreenState extends State<ComposeMailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final mq = MediaQuery.of(context);
+    final kb = mq.viewInsets.bottom;
+    final sz = mq.size;
+    final cell = min(sz.width ~/ 120, sz.height ~/ 160).clamp(1, 100);
+    _topInsetPx = mq.padding.top;
+    final availPx = sz.height - kb - _topInsetPx;
+    _visibleRows = (availPx ~/ cell).clamp(1, 160);
+    _kbUp = kb > 1;
+
+    // キーボードが閉じたらフォーカスを外す（再タップでまた出せるように）。
+    if (_prevKb > 1 && kb <= 1) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) FocusManager.instance.primaryFocus?.unfocus();
+      });
+    }
+    _prevKb = kb;
+
+    final repaintKey = _key ^ (_visibleRows << 6) ^ (_kbUp ? 1 << 20 : 0);
+
     return Stack(
       children: [
         LedCanvas(
           font: widget.font,
-          repaintKey: _key,
+          repaintKey: repaintKey,
+          alignTop: _kbUp,
+          topInset: _topInsetPx,
           paint: _paint,
           onTapDown: _onTap,
           onLongPressStart: _onLongPressStart,

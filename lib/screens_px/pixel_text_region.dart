@@ -26,9 +26,29 @@ class PixelTextRegion {
   final TextEditingController controller;
   final FocusNode focus;
   final BdfFont font;
-  final int x, y, w, h, lineHeight, maxLines;
+  int x, y, w, h, maxLines; // 入力モードで変化するため可変
+  final int lineHeight;
   final bool singleLine;
   final bool readOnly;
+
+  // 入力モード等でレイアウトを切り替える。
+  void setBox({int? x, int? y, int? w, int? h, int? maxLines}) {
+    if (x != null) this.x = x;
+    if (y != null) this.y = y;
+    if (w != null) this.w = w;
+    if (h != null) this.h = h;
+    if (maxLines != null) this.maxLines = maxLines;
+  }
+
+  // スクロールバーのつまみ位置（領域内の相対top・高さ）。不要ならnull。
+  ({int top, int height})? scrollbarMetrics() {
+    final total = totalLines();
+    if (singleLine || total <= maxLines) return null;
+    final trackH = maxLines * lineHeight;
+    final height = (trackH * maxLines / total).round().clamp(2, trackH);
+    final top = (trackH * _firstLine / total).round();
+    return (top: top, height: height);
+  }
 
   static const int _pad = 2;
 
@@ -221,12 +241,10 @@ class PixelTextRegion {
       }
     }
 
-    // 右端の細いスクロールバー（複数行で行数が多いときだけ）。
-    if (!singleLine && l.lineCount > maxLines) {
-      final trackH = maxLines * lineHeight;
-      final barH = (trackH * maxLines / l.lineCount).round().clamp(2, trackH);
-      final barTop = _oy + (trackH * _firstLine / l.lineCount).round();
-      fb.vLine(x + w - 1, barTop, barH, on: true);
+    // 右端の細いスクロールバー（枠の内側 x+w-2 に描く。borderと重ならない）。
+    final sb = scrollbarMetrics();
+    if (sb != null) {
+      fb.vLine(x + w - 2, _oy + sb.top, sb.height, on: true);
     }
   }
 }

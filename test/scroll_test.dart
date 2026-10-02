@@ -55,4 +55,19 @@ void main() {
     r.scrollByLines(5);
     expect(r.firstLine, 0);
   });
+
+  test('長文ではスクロールバーが出る（短文では出ない）', () {
+    final short = _region('a\nb'); // 2行 <= maxLines2
+    expect(short.scrollbarMetrics(), isNull);
+
+    final long = _region(text); // 5行 > maxLines2
+    final m = long.scrollbarMetrics();
+    expect(m, isNotNull);
+    expect(m!.top, 0);
+    expect(m.height, greaterThan(0));
+
+    long.scrollByLines(3); // 末尾付近へ
+    final m2 = long.scrollbarMetrics()!;
+    expect(m2.top, greaterThan(0)); // つまみが下がる
+  });
 }

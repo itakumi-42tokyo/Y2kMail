@@ -18,6 +18,8 @@ class LedCanvas extends StatefulWidget {
     this.onLongPressMoveUpdate,
     this.onPanStart,
     this.onPanUpdate,
+    this.alignTop = false,
+    this.topInset = 0,
     this.repaintKey = 0,
     this.renderer,
   });
@@ -29,6 +31,10 @@ class LedCanvas extends StatefulWidget {
   final void Function(int x, int y)? onLongPressMoveUpdate;
   final void Function(int x, int y)? onPanStart;
   final void Function(int x, int y)? onPanUpdate;
+
+  /// trueのとき、パネルを中央ではなく上寄せ（topInset分だけ下げて）配置する。
+  final bool alignTop;
+  final double topInset;
   final int repaintKey;
 
   /// 表示パネル。省略時は丸型電球。
@@ -61,11 +67,14 @@ class _LedCanvasState extends State<LedCanvas> {
     final cell = (sx < sy ? sx : sy).clamp(1, 100);
     final dw = Framebuffer.width * cell;
     final dh = Framebuffer.height * cell;
-    _offX = (constraints.maxWidth - dw) / 2;
-    _offY = (constraints.maxHeight - dh) / 2;
+    final newOffX = (constraints.maxWidth - dw) / 2;
+    final newOffY =
+        widget.alignTop ? widget.topInset : (constraints.maxHeight - dh) / 2;
 
-    if (cell != _cellPx) {
+    if (cell != _cellPx || newOffX != _offX || newOffY != _offY) {
       _cellPx = cell;
+      _offX = newOffX;
+      _offY = newOffY;
       // 高解像度スプライト(spriteSize)を、1セル(cell)に縮小して中央へ置く。
       final spr = _renderer.spriteSize;
       final s = cell / spr;
