@@ -1,0 +1,4 @@
+GNU Unifont
+Copyright (C) 1998-2026 Roman Czyborra, Paul Hardy, et al.
+License: SIL Open Font License v1.1 および GPLv2+ (GNU Font Embedding Exception付き)
+入手元: https://unifoundry.com/unifont/
