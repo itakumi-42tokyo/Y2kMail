@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:qr/qr.dart';
 
@@ -25,7 +26,11 @@ class QrDisplayScreen extends StatefulWidget {
 class _QrDisplayScreenState extends State<QrDisplayScreen> {
   String? _token;
   bool _failed = false;
+  bool _copied = false;
   int _key = 0;
+
+  // 開発用「コピー」ボタンのY座標。
+  static const int _copyY = 118;
 
   @override
   void initState() {
@@ -67,7 +72,23 @@ class _QrDisplayScreenState extends State<QrDisplayScreen> {
     }
 
     _drawQr(fb, token);
+    // 開発用: トークンをクリップボードへコピーするボタン。
+    PixelUi.button(fb, 4, _copyY, 112, _copied ? 'コピーしました' : 'トークンをコピー');
     fb.drawTextCentered(140, 'よみとってもらってね', on: true);
+  }
+
+  Future<void> _onTap(int x, int y) async {
+    final token = _token;
+    if (token == null) return;
+    if (y >= _copyY && y < _copyY + PixelUi.buttonH) {
+      await Clipboard.setData(ClipboardData(text: token));
+      if (mounted) {
+        setState(() {
+          _copied = true;
+          _key++;
+        });
+      }
+    }
   }
 
   void _drawQr(Framebuffer fb, String data) {
@@ -101,6 +122,7 @@ class _QrDisplayScreenState extends State<QrDisplayScreen> {
       font: widget.font,
       repaintKey: _key,
       paint: _paint,
+      onTapDown: _onTap,
     );
   }
 }
