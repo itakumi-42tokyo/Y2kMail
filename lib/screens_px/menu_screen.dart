@@ -7,9 +7,10 @@ import '../engine/pixel_canvas.dart';
 // 見本のメニュー画面。すべてフレームバッファにドットで描く。
 // （描画方式の確認用。実データとの接続はこの土台の上で順次行う）
 class MenuScreen extends StatefulWidget {
-  const MenuScreen({super.key, required this.font});
+  const MenuScreen({super.key, required this.font, this.onLogout});
 
   final BdfFont font;
+  final VoidCallback? onLogout;
 
   @override
   State<MenuScreen> createState() => _MenuScreenState();
@@ -33,6 +34,8 @@ class _MenuScreenState extends State<MenuScreen> {
       _selected = idx;
       _key++;
     });
+    // いまはログアウトのみ実動作（他画面は順次移植）。
+    if (_items[idx] == 'ログアウト') widget.onLogout?.call();
   }
 
   void _paint(Framebuffer fb) {

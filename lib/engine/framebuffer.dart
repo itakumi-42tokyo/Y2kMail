@@ -72,7 +72,8 @@ class Framebuffer {
   }
 
   // 文字列を描く。on=false にすると、点灯部をくり抜く（反転表示に使う）。
-  int drawText(int x, int y, String s, {bool on = true}) {
+  // clipRight を与えると、その X 座標を超える点は描かない（入力欄の枠内に収める）。
+  int drawText(int x, int y, String s, {bool on = true, int? clipRight}) {
     var cx = x;
     for (final rune in s.runes) {
       final g = font.glyphFor(rune);
@@ -82,9 +83,10 @@ class Framebuffer {
       }
       for (var row = 0; row < font.cellHeight; row++) {
         for (var col = 0; col < g.width; col++) {
-          if (g.isOn(col, row)) {
-            setPixel(cx + col, y + row, on: on);
-          }
+          if (!g.isOn(col, row)) continue;
+          final px = cx + col;
+          if (clipRight != null && px > clipRight) continue;
+          setPixel(px, y + row, on: on);
         }
       }
       cx += g.advance;
