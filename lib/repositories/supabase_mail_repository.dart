@@ -13,29 +13,65 @@ class SupabaseMailRepository implements MailRepository {
 
   static const String _bucket = 'mail-photos';
 
-  // 一度に取得するメールの上限。無限スクロールにはしない。
-  static const int _conversationLimit = 100;
+  @override
+  Future<int> countInbox() => _count('receiver_id');
 
   @override
-  Future<List<Mail>> fetchConversation(String friendId) async {
-    final myId = _client.auth.currentUser!.id;
+  Future<int> countOutbox() => _count('sender_id');
 
-    // 自分と相手の間でやり取りされたメールだけを取る。
+  Future<int> _count(String column) async {
+    final myId = _client.auth.currentUser!.id;
+    return _client.from('mails').count(CountOption.exact).eq(column, myId);
+  }
+
+  @override
+  Future<List<Mail>> fetchInbox({required int page, required int pageSize}) =>
+      _fetchPage(selfColumn: 'receiver_id', partnerColumn: 'sender_id',
+          page: page, pageSize: pageSize);
+
+  @override
+  Future<List<Mail>> fetchOutbox({required int page, required int pageSize}) =>
+      _fetchPage(selfColumn: 'sender_id', partnerColumn: 'receiver_id',
+          page: page, pageSize: pageSize);
+
+  Future<List<Mail>> _fetchPage({
+    required String selfColumn,
+    required String partnerColumn,
+    required int page,
+    required int pageSize,
+  }) async {
+    final myId = _client.auth.currentUser!.id;
+    final from = page * pageSize;
+    final to = from + pageSize - 1;
+
     final rows = await _client
         .from('mails')
         .select()
-        .or('and(sender_id.eq.$myId,receiver_id.eq.$friendId),'
-            'and(sender_id.eq.$friendId,receiver_id.eq.$myId)')
-        .order('created_at', ascending: true)
-        .limit(_conversationLimit);
+        .eq(selfColumn, myId)
+        .order('created_at', ascending: false)
+        .range(from, to) as List;
+
+    // 相手の表示名をまとめて取得（友達のprofilesはRLSで見える）。
+    final partnerIds = <String>{
+      for (final r in rows) r[partnerColumn] as String,
+    }.toList();
+    final nameById = <String, String>{};
+    if (partnerIds.isNotEmpty) {
+      final profiles = await _client
+          .from('profiles')
+          .select('id, display_name')
+          .inFilter('id', partnerIds) as List;
+      for (final p in profiles) {
+        nameById[p['id'] as String] = p['display_name'] as String;
+      }
+    }
 
     return [
-      for (final row in rows as List)
+      for (final row in rows)
         Mail(
           id: row['id'] as String,
-          senderId: row['sender_id'] as String,
-          receiverId: row['receiver_id'] as String,
-          isMine: row['sender_id'] == myId,
+          partnerId: row[partnerColumn] as String,
+          partnerName: nameById[row[partnerColumn]] ?? '(不明)',
           subject: row['subject'] as String?,
           body: row['body'] as String?,
           photoPath: row['photo_path'] as String?,

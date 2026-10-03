@@ -7,6 +7,7 @@ import '../engine/pixel_route.dart';
 import '../repositories/friend_repository.dart';
 import '../repositories/mail_repository.dart';
 import 'compose_mail_screen.dart';
+import 'mailbox_screen.dart';
 
 // メールメニュー: 新規作成 / 受信BOX / 送信BOX。
 // いまは新規作成のみ接続（受信/送信BOXは次に移植）。
@@ -52,12 +53,23 @@ class _MailMenuScreenState extends State<MailMenuScreen> {
     switch (items[idx]) {
       case 'しんきさくせい':
         _compose();
+      case 'そうしんBOX':
+        _openBox(false);
       default:
         setState(() {
           _message = '準備中';
           _key++;
         });
     }
+  }
+
+  Future<void> _openBox(bool inbox) async {
+    await Navigator.of(context).push(pixelRoute((_) => MailboxScreen(
+          font: widget.font,
+          mailRepository: widget.mailRepository,
+          isInbox: inbox,
+        )));
+    if (mounted) setState(() => _key++);
   }
 
   Future<void> _compose() async {
