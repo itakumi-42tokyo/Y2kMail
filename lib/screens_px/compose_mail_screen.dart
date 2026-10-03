@@ -66,6 +66,9 @@ class _ComposeMailScreenState extends State<ComposeMailScreen> {
   PixelTextRegion? _panRegion;
   int _panLastY = 0;
 
+  // ポップアップ上で始まったタッチの所有（指を離すまでポップアップが持つ）。
+  bool _popupTouch = false;
+
   // キーボード（入力モード）関連。
   double _prevKb = 0;
   bool _kbUp = false;
@@ -197,15 +200,18 @@ class _ComposeMailScreenState extends State<ComposeMailScreen> {
     }
   }
 
-  void _handlePopupTap(int x, int y) {
+  // ポップアップ表示中に触れたら、そのタッチはポップアップが所有する。
+  // 閉じる判定は「指を離した瞬間(onTapUp)」で行う。
+  void _onTapUp(int x, int y) {
+    if (!_popupTouch) return;
+    _popupTouch = false;
     final p = _popup;
-    if (p == null) return;
-    if (p.hitOk(x, y)) {
+    if (p != null && p.hitOk(x, y)) {
       final cb = p.onClosed;
       _closePopup();
       cb?.call();
     }
-    // OKボタン以外のタップは独占して何もしない（背後には渡さない）。
+    // OK以外で離しても、このタッチは背後に渡さない（独占）。
   }
 
   Future<void> _send() async {
@@ -268,11 +274,13 @@ class _ComposeMailScreenState extends State<ComposeMailScreen> {
   }
 
   void _onTap(int x, int y) {
-    // ポップアップ表示中は、最前面が独占（背後のフォームには渡さない）。
+    // ポップアップ表示中は、このタッチをポップアップが所有し、背後に渡さない。
+    // 実際の開閉は onTapUp（指を離した瞬間）で判定する。
     if (_popup != null) {
-      _handlePopupTap(x, y);
+      _popupTouch = true;
       return;
     }
+    _popupTouch = false;
     final barY = _kbUp ? (_visibleRows - 1) * 16 : _barY;
     if (_barVisible && y >= barY && y < barY + 16) {
       _barAction((x ~/ 30).clamp(0, 3));
@@ -299,7 +307,7 @@ class _ComposeMailScreenState extends State<ComposeMailScreen> {
   }
 
   void _onLongPressStart(int x, int y) {
-    if (_popup != null) return;
+    if (_popup != null || _popupTouch) return;
     PixelTextRegion? r;
     if (_subjectRegion.contains(x, y)) r = _subjectRegion;
     if (_bodyRegion.contains(x, y)) r = _bodyRegion;
@@ -309,14 +317,14 @@ class _ComposeMailScreenState extends State<ComposeMailScreen> {
   }
 
   void _onLongPressMove(int x, int y) {
-    if (_popup != null) return;
+    if (_popup != null || _popupTouch) return;
     _active?.extendTo(x, y);
     setState(() => _key++);
   }
 
   // 長押しなしのドラッグ＝スクロール。
   void _onPanStart(int x, int y) {
-    if (_popup != null) return;
+    if (_popup != null || _popupTouch) return;
     PixelTextRegion? r;
     if (_subjectRegion.contains(x, y)) r = _subjectRegion;
     if (_bodyRegion.contains(x, y)) r = _bodyRegion;
@@ -325,7 +333,7 @@ class _ComposeMailScreenState extends State<ComposeMailScreen> {
   }
 
   void _onPanUpdate(int x, int y) {
-    if (_popup != null) return;
+    if (_popup != null || _popupTouch) return;
     final r = _panRegion;
     if (r == null) return;
     final dy = y - _panLastY;
@@ -453,6 +461,7 @@ class _ComposeMailScreenState extends State<ComposeMailScreen> {
           topInset: _topInsetPx,
           paint: _paint,
           onTapDown: _onTap,
+          onTapUp: _onTapUp,
           onLongPressStart: _onLongPressStart,
           onLongPressMoveUpdate: _onLongPressMove,
           onPanStart: _onPanStart,

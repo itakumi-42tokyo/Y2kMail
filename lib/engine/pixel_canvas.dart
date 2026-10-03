@@ -14,6 +14,7 @@ class LedCanvas extends StatefulWidget {
     required this.font,
     required this.paint,
     this.onTapDown,
+    this.onTapUp,
     this.onLongPressStart,
     this.onLongPressMoveUpdate,
     this.onPanStart,
@@ -27,6 +28,7 @@ class LedCanvas extends StatefulWidget {
   final BdfFont font;
   final void Function(Framebuffer fb) paint;
   final void Function(int x, int y)? onTapDown;
+  final void Function(int x, int y)? onTapUp;
   final void Function(int x, int y)? onLongPressStart;
   final void Function(int x, int y)? onLongPressMoveUpdate;
   final void Function(int x, int y)? onPanStart;
@@ -119,6 +121,7 @@ class _LedCanvasState extends State<LedCanvas> {
         return GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTapDown: (d) => dispatch(widget.onTapDown, d.localPosition),
+          onTapUp: (d) => dispatch(widget.onTapUp, d.localPosition),
           onLongPressStart: (d) =>
               dispatch(widget.onLongPressStart, d.localPosition),
           onLongPressMoveUpdate: (d) =>
