@@ -2,6 +2,12 @@ import 'dart:typed_data';
 
 import '../models/mail.dart';
 
+// セッション更新にも失敗した（ログインし直しが必要な）とき。
+class SessionExpiredException implements Exception {
+  @override
+  String toString() => 'SessionExpiredException';
+}
+
 /// メール送受信を扱うリポジトリ。
 /// 受信BOX・送信BOXはスレッドにせず、時系列のページ送りで扱う。
 abstract class MailRepository {

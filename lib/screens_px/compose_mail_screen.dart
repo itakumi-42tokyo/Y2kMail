@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:image_picker/image_picker.dart';
@@ -179,7 +180,17 @@ class _ComposeMailScreenState extends State<ComposeMailScreen> {
         originalPhotoBytes: _photo,
       );
       if (mounted) Navigator.of(context).pop(true);
-    } catch (e) {
+    } on SessionExpiredException {
+      // セッション更新も失敗したときだけ、ログインし直しを促す。
+      setState(() {
+        _error = 'ログインしなおしてね';
+        _sending = false;
+        _key++;
+      });
+    } catch (e, st) {
+      // 下書き（宛先・件名・本文・写真）は画面に残したまま、失敗だけ知らせる。
+      debugPrint('SEND_FAIL: $e');
+      debugPrint('$st');
       setState(() {
         _error = 'そうしん失敗';
         _sending = false;
@@ -315,7 +326,9 @@ class _ComposeMailScreenState extends State<ComposeMailScreen> {
     PixelUi.button(fb, 4, _photoY, 112, _photo == null ? 'しゃしん' : 'しゃしん:あり');
     PixelUi.button(fb, 4, _sendY, 112, _sending ? 'そうしん中…' : 'そうしん');
 
-    if (_error != null) fb.drawTextCentered(150, _error!, on: true);
+    if (_error != null) {
+      fb.drawText(2, 150, _error!, on: true, clipRight: Framebuffer.width - 2);
+    }
     if (_barVisible) _drawBar(fb, _barY);
   }
 

@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/mail.dart';
 import '../services/garakei_photo_service.dart';
+import '../util/uuid.dart';
 import 'mail_repository.dart';
 
 class SupabaseMailRepository implements MailRepository {
@@ -88,33 +89,96 @@ class SupabaseMailRepository implements MailRepository {
     Uint8List? originalPhotoBytes,
   }) async {
     final myId = _client.auth.currentUser!.id;
+    // メールIDは端末側で生成（二重送信を同じIDの重複としてサーバーで弾く）。
+    final id = uuidV4();
 
     String? photoPath;
+    Uint8List? processed;
     if (originalPhotoBytes != null) {
       // 原則どおり、元の写真はサーバーに送らない。端末内でガラケー加工する。
-      final processed = await GarakeiPhotoService.process(originalPhotoBytes);
-      // 自分のフォルダにのみアップロードできる（Storageのポリシー）。
-      photoPath = '$myId/${DateTime.now().microsecondsSinceEpoch}.jpg';
-      await _client.storage.from(_bucket).uploadBinary(
-            photoPath,
-            processed,
-            fileOptions: const FileOptions(contentType: 'image/jpeg'),
-          );
+      processed = await GarakeiPhotoService.process(originalPhotoBytes);
+      // パスはIDから決める（再送時に同じパスへ上書きする）。
+      photoPath = '$myId/$id.jpg';
     }
 
-    final trimmedSubject = subject?.trim();
-    final trimmedBody = body?.trim();
+    final payload = buildMailInsert(
+      id: id,
+      senderId: myId,
+      receiverId: receiverId,
+      subject: subject,
+      body: body,
+      photoPath: photoPath,
+    );
 
-    await _client.from('mails').insert({
-      'sender_id': myId,
-      'receiver_id': receiverId,
-      'subject': (trimmedSubject == null || trimmedSubject.isEmpty)
-          ? null
-          : trimmedSubject,
-      'body':
-          (trimmedBody == null || trimmedBody.isEmpty) ? null : trimmedBody,
-      'photo_path': photoPath,
+    await _withAuthRetry(() async {
+      if (processed != null) {
+        await _client.storage.from(_bucket).uploadBinary(
+              photoPath!,
+              processed,
+              fileOptions:
+                  const FileOptions(contentType: 'image/jpeg', upsert: true),
+            );
+      }
+      try {
+        await _client.from('mails').insert(payload);
+      } on PostgrestException catch (e) {
+        // 同じIDが既にある＝送信済み。二重送信防止として成功扱い。
+        if (e.code == '23505') return;
+        rethrow;
+      }
     });
+  }
+
+  // 送信ペイロードの組み立て（空文字はnull化）。テストしやすいよう純粋関数にする。
+  static Map<String, dynamic> buildMailInsert({
+    required String id,
+    required String senderId,
+    required String receiverId,
+    String? subject,
+    String? body,
+    String? photoPath,
+  }) {
+    final s = subject?.trim();
+    final b = body?.trim();
+    return {
+      'id': id,
+      'sender_id': senderId,
+      'receiver_id': receiverId,
+      'subject': (s == null || s.isEmpty) ? null : s,
+      'body': (b == null || b.isEmpty) ? null : b,
+      'photo_path': photoPath,
+    };
+  }
+
+  // 認証(401/JWT)起因のエラーか。判定をテストできるよう切り出す。
+  static bool isAuthError(Object e) {
+    if (e is AuthException) return true;
+    if (e is PostgrestException) {
+      final code = e.code;
+      if (code == '401' || code == 'PGRST301') return true;
+      return e.message.toLowerCase().contains('jwt');
+    }
+    if (e is StorageException) {
+      return e.statusCode == '401';
+    }
+    return false;
+  }
+
+  // 認証エラーなら、セッションを更新して1回だけ再試行する。
+  // 更新自体に失敗したら SessionExpiredException を投げる。
+  Future<void> _withAuthRetry(Future<void> Function() op) async {
+    try {
+      await op();
+      return;
+    } catch (e) {
+      if (!isAuthError(e)) rethrow;
+      try {
+        await _client.auth.refreshSession();
+      } catch (_) {
+        throw SessionExpiredException();
+      }
+      await op(); // 1回だけ再送
+    }
   }
 
   @override
