@@ -15,6 +15,7 @@ import '../repositories/friend_repository.dart';
 import '../repositories/mail_repository.dart';
 import 'friend_picker_screen.dart';
 import 'photo_source_screen.dart';
+import 'pixel_popup.dart';
 import 'pixel_text_region.dart';
 import 'pixel_ui.dart';
 
@@ -53,12 +54,14 @@ class _ComposeMailScreenState extends State<ComposeMailScreen> {
 
   Friend? _to;
   Uint8List? _photo;
-  bool _sending = false;
-  String? _error;
   int _key = 0;
 
   bool _caretOn = true;
   Timer? _blink;
+
+  // 共通ポップアップ（最前面がタップを独占する）。
+  PixelPopup? _popup;
+  Timer? _popupTimer;
 
   PixelTextRegion? _panRegion;
   int _panLastY = 0;
@@ -155,23 +158,68 @@ class _ComposeMailScreenState extends State<ComposeMailScreen> {
     });
   }
 
-  bool get _canSend =>
-      _to != null && (_body.text.trim().isNotEmpty || _photo != null);
+  // ---- 共通ポップアップ（最前面がタップを独占） ----
+  void _showOk(String msg, {void Function()? onClosed}) {
+    _popupTimer?.cancel();
+    setState(() {
+      _popup = PixelPopup.ok(msg, widget.font, onClosed: onClosed);
+      _key++;
+    });
+  }
 
-  Future<void> _send() async {
-    if (!_canSend) {
+  void _showProgress(String msg) {
+    _popupTimer?.cancel();
+    setState(() {
+      _popup = PixelPopup.progress(msg, widget.font);
+      _key++;
+    });
+  }
+
+  void _showToast(String msg, {void Function()? onClosed, int ms = 1200}) {
+    _popupTimer?.cancel();
+    setState(() {
+      _popup = PixelPopup.toast(msg, widget.font, ms: ms);
+      _key++;
+    });
+    _popupTimer = Timer(Duration(milliseconds: ms), () {
+      _closePopup();
+      onClosed?.call();
+    });
+  }
+
+  void _closePopup() {
+    _popupTimer?.cancel();
+    if (mounted) {
       setState(() {
-        _error = 'あて先と本文(か写真)が必要';
+        _popup = null;
         _key++;
       });
+    }
+  }
+
+  void _handlePopupTap(int x, int y) {
+    final p = _popup;
+    if (p == null) return;
+    if (p.hitOk(x, y)) {
+      final cb = p.onClosed;
+      _closePopup();
+      cb?.call();
+    }
+    // OKボタン以外のタップは独占して何もしない（背後には渡さない）。
+  }
+
+  Future<void> _send() async {
+    // 入力不備は送信を呼ばず、ポップアップで知らせる。
+    if (_to == null) {
+      _showOk('あて先をえらんでね', onClosed: _pickTo);
+      return;
+    }
+    if (_body.text.trim().isEmpty && _photo == null) {
+      _showOk('本文か写真をいれてね', onClosed: () => _bodyFocus.requestFocus());
       return;
     }
     FocusManager.instance.primaryFocus?.unfocus();
-    setState(() {
-      _sending = true;
-      _error = null;
-      _key++;
-    });
+    _showProgress('そうしん中…');
     try {
       await widget.mailRepository.sendMail(
         receiverId: _to!.id,
@@ -179,23 +227,17 @@ class _ComposeMailScreenState extends State<ComposeMailScreen> {
         body: _body.text,
         originalPhotoBytes: _photo,
       );
-      if (mounted) Navigator.of(context).pop(true);
-    } on SessionExpiredException {
-      // セッション更新も失敗したときだけ、ログインし直しを促す。
-      setState(() {
-        _error = 'ログインしなおしてね';
-        _sending = false;
-        _key++;
+      if (!mounted) return;
+      _showToast('そうしんしました', onClosed: () {
+        if (mounted) Navigator.of(context).pop(true);
       });
+    } on SessionExpiredException {
+      if (mounted) _showOk('ログインしなおしてね');
     } catch (e, st) {
-      // 下書き（宛先・件名・本文・写真）は画面に残したまま、失敗だけ知らせる。
+      // 下書き（宛先・件名・本文・写真）は画面に残す。詳細はログへ。
       debugPrint('SEND_FAIL: $e');
       debugPrint('$st');
-      setState(() {
-        _error = 'そうしん失敗';
-        _sending = false;
-        _key++;
-      });
+      if (mounted) _showOk('そうしんできませんでした');
     }
   }
 
@@ -226,7 +268,11 @@ class _ComposeMailScreenState extends State<ComposeMailScreen> {
   }
 
   void _onTap(int x, int y) {
-    if (_sending) return;
+    // ポップアップ表示中は、最前面が独占（背後のフォームには渡さない）。
+    if (_popup != null) {
+      _handlePopupTap(x, y);
+      return;
+    }
     final barY = _kbUp ? (_visibleRows - 1) * 16 : _barY;
     if (_barVisible && y >= barY && y < barY + 16) {
       _barAction((x ~/ 30).clamp(0, 3));
@@ -253,7 +299,7 @@ class _ComposeMailScreenState extends State<ComposeMailScreen> {
   }
 
   void _onLongPressStart(int x, int y) {
-    if (_sending) return;
+    if (_popup != null) return;
     PixelTextRegion? r;
     if (_subjectRegion.contains(x, y)) r = _subjectRegion;
     if (_bodyRegion.contains(x, y)) r = _bodyRegion;
@@ -263,12 +309,14 @@ class _ComposeMailScreenState extends State<ComposeMailScreen> {
   }
 
   void _onLongPressMove(int x, int y) {
+    if (_popup != null) return;
     _active?.extendTo(x, y);
     setState(() => _key++);
   }
 
   // 長押しなしのドラッグ＝スクロール。
   void _onPanStart(int x, int y) {
+    if (_popup != null) return;
     PixelTextRegion? r;
     if (_subjectRegion.contains(x, y)) r = _subjectRegion;
     if (_bodyRegion.contains(x, y)) r = _bodyRegion;
@@ -277,6 +325,7 @@ class _ComposeMailScreenState extends State<ComposeMailScreen> {
   }
 
   void _onPanUpdate(int x, int y) {
+    if (_popup != null) return;
     final r = _panRegion;
     if (r == null) return;
     final dy = y - _panLastY;
@@ -304,6 +353,7 @@ class _ComposeMailScreenState extends State<ComposeMailScreen> {
       fb.rect(2, 16, 116, fieldLines * 16, on: true);
       r.draw(fb, caretOn: _caretOn, active: true);
       if (barOn) _drawBar(fb, (rows - 1) * 16);
+      if (_popup != null) _popup!.draw(fb);
       return;
     }
 
@@ -324,12 +374,10 @@ class _ComposeMailScreenState extends State<ComposeMailScreen> {
         caretOn: _caretOn, active: identical(_active, _bodyRegion));
 
     PixelUi.button(fb, 4, _photoY, 112, _photo == null ? 'しゃしん' : 'しゃしん:あり');
-    PixelUi.button(fb, 4, _sendY, 112, _sending ? 'そうしん中…' : 'そうしん');
+    PixelUi.button(fb, 4, _sendY, 112, 'そうしん');
 
-    if (_error != null) {
-      fb.drawText(2, 150, _error!, on: true, clipRight: Framebuffer.width - 2);
-    }
     if (_barVisible) _drawBar(fb, _barY);
+    if (_popup != null) _popup!.draw(fb);
   }
 
   // 選択操作バー（1行・8pxフォント）。反転表示。barY に描く。
@@ -348,6 +396,7 @@ class _ComposeMailScreenState extends State<ComposeMailScreen> {
   @override
   void dispose() {
     _blink?.cancel();
+    _popupTimer?.cancel();
     _subject.dispose();
     _body.dispose();
     _subjectFocus.dispose();
